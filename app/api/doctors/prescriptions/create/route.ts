@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const createPrescriptionSchema = z.object({
   appointmentId: z.string().min(1, "Randevu seçilmelidir"),
   patientId: z.string().min(1, "Hasta seçilmelidir"),

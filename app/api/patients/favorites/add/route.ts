@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const addFavoriteSchema = z.object({
   doctorId: z.string().min(1, "Doktor ID gerekli"),
 });

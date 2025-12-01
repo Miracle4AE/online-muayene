@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const endMeetingSchema = z.object({
   appointmentId: z.string().min(1, "Randevu ID gerekli"),
   meetingId: z.string().optional(),

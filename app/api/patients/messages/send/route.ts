@@ -6,6 +6,9 @@ import { writeFile } from "fs/promises";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const sendMessageSchema = z.object({
   doctorId: z.string().min(1, "Doktor seçilmelidir"),
   message: z.string().min(10, "Mesaj en az 10 karakter olmalıdır").max(2000, "Mesaj en fazla 2000 karakter olabilir"),

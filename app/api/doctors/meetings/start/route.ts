@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const startMeetingSchema = z.object({
   appointmentId: z.string().min(1, "Randevu seçilmelidir"),
   meetingLink: z.string().url("Geçerli bir görüşme linki giriniz"),

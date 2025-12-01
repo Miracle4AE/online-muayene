@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Takip edilen hastaları listele
 export async function GET(request: NextRequest) {
   try {

@@ -4,6 +4,9 @@ import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
