@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
 
+// Build sırasında statik olarak analiz edilmesini engelle
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Admin authentication kontrolü
@@ -92,7 +96,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        paymentDate: "desc",
+        createdAt: "desc",
       },
     });
 
