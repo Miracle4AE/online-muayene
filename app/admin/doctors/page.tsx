@@ -3742,6 +3742,7 @@ export default function AdminDoctorsPage() {
                       city: "",
                       experience: "",
                       bio: "",
+                      appointmentPrice: "",
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
