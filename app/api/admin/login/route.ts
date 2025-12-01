@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const adminLoginSchema = z.object({
   email: z.string().email("Geçerli bir email adresi giriniz"),
   password: z.string().min(1, "Şifre gereklidir"),

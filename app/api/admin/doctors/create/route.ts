@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
+// Build sırasında statik olarak analiz edilmesini engelle
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const createDoctorSchema = z.object({
   name: z.string().min(1, "İsim gereklidir"),
   email: z.string().email("Geçerli bir email adresi giriniz"),

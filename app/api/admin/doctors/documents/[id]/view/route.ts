@@ -4,6 +4,9 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 function getAdminInfo(request: NextRequest): { email: string; hospital: string } | null {
   const adminToken = request.cookies.get("admin_token");
   if (!adminToken) return null;
@@ -32,7 +35,7 @@ function getAdminInfo(request: NextRequest): { email: string; hospital: string }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const adminInfo = getAdminInfo(request);
@@ -43,7 +46,8 @@ export async function GET(
       );
     }
 
-    const documentId = params.id;
+    const resolvedParams = await Promise.resolve(params);
+    const documentId = resolvedParams.id;
 
     // Belgeyi bul
     const document = await prisma.doctorDocument.findUnique({
