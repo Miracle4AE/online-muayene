@@ -67,6 +67,7 @@ export async function POST(
     // Check if admin has access to this recording's hospital
     const adminInfo = await adminInfoResponse.json();
     if (
+      !recording.appointment.doctor.doctorProfile ||
       recording.appointment.doctor.doctorProfile.hospital !== adminInfo.hospital
     ) {
       return NextResponse.json(
