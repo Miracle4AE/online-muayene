@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const role = searchParams.get("role") || "doctor";
@@ -149,6 +149,21 @@ export default function LoginPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-primary-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
 

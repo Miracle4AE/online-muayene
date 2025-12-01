@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const role = searchParams.get("role") || "doctor";
@@ -1536,6 +1536,21 @@ export default function RegisterPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-primary-600">Yükleniyor...</p>
+        </div>
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   );
 }
 
