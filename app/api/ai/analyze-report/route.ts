@@ -4,6 +4,9 @@ import OpenAI from "openai";
 import { readFile } from "fs/promises";
 import { join } from "path";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // OpenAI client'ı oluştur
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
