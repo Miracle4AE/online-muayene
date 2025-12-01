@@ -1,37 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminAccess } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
   try {
     // Admin authentication kontrolü
-    const adminToken = request.cookies.get("admin_token");
+    const { isValid, hospitalId } = await verifyAdminAccess(request);
     
-    if (!adminToken) {
+    if (!isValid || !hospitalId) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 401 }
+        { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
+        { status: 403 }
       );
     }
 
-    // Admin bilgilerini al
-    const adminInfoResponse = await fetch(
-      `${request.nextUrl.origin}/api/admin/info`,
-      {
-        headers: {
-          Cookie: `admin_token=${adminToken.value}`,
-        },
-      }
-    );
+    // Hospital bilgisini al
+    const hospital = await prisma.hospital.findUnique({
+      where: { id: hospitalId },
+    });
 
-    if (!adminInfoResponse.ok) {
+    if (!hospital) {
       return NextResponse.json(
-        { error: "Admin bilgileri alınamadı" },
-        { status: 401 }
+        { error: "Hastane bulunamadı" },
+        { status: 404 }
       );
     }
 
-    const adminInfo = await adminInfoResponse.json();
-    const hospital = adminInfo.hospital;
+    const hospitalName = hospital.name;
 
     // Query parametrelerini al
     const doctorId = request.nextUrl.searchParams.get("doctorId");
@@ -54,7 +49,7 @@ export async function GET(request: NextRequest) {
       doctor: {
         doctorProfile: {
           isNot: null, // doctorProfile null olmamalı
-          hospital: hospital,
+          hospital: hospitalName,
         },
       },
       paymentStatus: "PAID", // Sadece ödenmiş randevular
