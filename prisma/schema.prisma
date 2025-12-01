@@ -1,0 +1,388 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String // DOCTOR veya PATIENT
+  phone     String?
+  resetPasswordToken   String? // Şifre sıfırlama token'ı
+  resetPasswordExpires DateTime? // Token son kullanma tarihi
+  twoFactorEnabled     Boolean  @default(false) // 2FA aktif mi?
+  twoFactorMethod      String?  // EMAIL veya SMS
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Doktor için özel alanlar
+  doctorProfile DoctorProfile?
+
+  // Hasta için özel alanlar
+  patientProfile PatientProfile?
+
+  // Randevular (doktor ve hasta için)
+  doctorAppointments  Appointment[] @relation("DoctorAppointments")
+  patientAppointments Appointment[] @relation("PatientAppointments")
+
+  // Yorumlar (hastalar doktorlara yorum yapabilir)
+  reviews DoctorReview[]
+
+  // Reçeteler
+  doctorPrescriptions  Prescription[] @relation("DoctorPrescriptions")
+  patientPrescriptions Prescription[] @relation("PatientPrescriptions")
+
+  // Raporlar
+  doctorReports  MedicalReport[] @relation("DoctorReports")
+  patientReports MedicalReport[] @relation("PatientReports")
+
+  // Video kayıtları
+  doctorVideoRecordings  VideoRecording[] @relation("DoctorVideoRecordings")
+  patientVideoRecordings VideoRecording[] @relation("PatientVideoRecordings")
+
+  // Favori doktorlar
+  favoriteDoctorsAsPatient FavoriteDoctor[] @relation("PatientFavorites")
+  favoriteDoctorsAsDoctor  FavoriteDoctor[] @relation("DoctorFavorites")
+
+  // Mesajlaşma
+  sentMessages     DoctorMessage[] @relation("PatientMessages")
+  receivedMessages DoctorMessage[] @relation("DoctorMessages")
+
+  // Takip edilen hastalar
+  followedPatientsAsDoctor FollowedPatient[] @relation("DoctorFollows")
+  followedPatientsAsPatient FollowedPatient[] @relation("PatientFollows")
+
+  // Hastane ilişkisi
+  hospitalId String?
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id])
+
+  @@map("users")
+}
+
+model Hospital {
+  id          String   @id @default(cuid())
+  name        String   @unique // Hastane adı
+  address     String? // Adres
+  city        String? // Şehir
+  phone       String? // Telefon
+  email       String? // Email
+  adminEmails String? // Admin email'leri (virgülle ayrılmış)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // İlişkiler
+  users        User[]
+  appointments Appointment[]
+  prescriptions Prescription[]
+  reports      MedicalReport[]
+  recordings   VideoRecording[]
+  messages     DoctorMessage[]
+
+  @@map("hospitals")
+}
+
+model DoctorProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization     String
+  licenseNumber      String    @unique
+  tcKimlikNo         String?   @unique // T.C. Kimlik Numarası
+  bio                String?
+  experience         Int? // Yıl cinsinden deneyim
+  photoUrl           String? // Doktor fotoğrafı URL'i
+  hospital           String? // Çalıştığı hastane
+  university         String? // Mezun olduğu üniversite
+  graduationYear     Int? // Mezuniyet yılı
+  workStatus         String? // Çalışma durumu (Tam Zamanlı, Yarı Zamanlı, Serbest, Emekli)
+  city               String? // Çalıştığı şehir
+  appointmentPrice   Float? // Randevu ücreti (TL)
+  verificationStatus String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  verifiedAt         DateTime? // Onaylanma tarihi
+  verifiedBy         String? // Onaylayan admin ID'si
+  rejectionReason    String? // Red sebebi
+  emailVerified      Boolean   @default(false) // Email doğrulama durumu
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Yorumlar
+  reviews DoctorReview[]
+
+  // Belgeler
+  documents DoctorDocument[]
+
+  @@map("doctor_profiles")
+}
+
+model PatientProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tcKimlikNo       String    @unique // T.C. Kimlik Numarası
+  dateOfBirth      DateTime?
+  gender           String?
+  address          String?
+  emergencyContact String?
+  emergencyPhone   String?
+  bloodType        String? // Kan grubu
+  allergies        String? // Alerjiler
+  chronicDiseases  String? // Kronik hastalıklar
+  medications      String? // Kullandığı ilaçlar
+  shareDataWithSameHospital Boolean @default(false) // Aynı hastane içindeki doktorlara veri paylaşımı
+  shareDataWithOtherHospitals Boolean @default(false) // Farklı hastanelerdeki doktorlara veri paylaşımı
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Hasta belgeleri
+  documents PatientDocument[]
+
+  // Tıbbi geçmiş
+  medicalHistory MedicalHistory[]
+
+  @@map("patient_profiles")
+}
+
+model Appointment {
+  id              String    @id @default(cuid())
+  doctorId        String
+  doctor          User      @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  patientId       String
+  patient         User      @relation("PatientAppointments", fields: [patientId], references: [id])
+  hospitalId      String?
+  hospital        Hospital? @relation(fields: [hospitalId], references: [id])
+  appointmentDate DateTime
+  status          String    @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  notes           String?
+  meetingLink     String? // Görüntülü görüşme linki
+  // Ödeme bilgileri
+  paymentAmount   Float? // Ödenen tutar (TL)
+  paymentDate     DateTime? // Ödeme tarihi
+  paymentStatus   String? // PENDING, PAID, FAILED, REFUNDED
+  paymentMethod   String? // CREDIT_CARD, DEBIT_CARD, BANK_TRANSFER, etc.
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // İlişkiler
+  prescriptions    Prescription[]
+  videoRecordings  VideoRecording[]
+  patientDocuments PatientDocument[] // Randevu ile ilişkili hasta belgeleri
+
+  @@map("appointments")
+}
+
+model Prescription {
+  id               String      @id @default(cuid())
+  appointmentId    String
+  appointment      Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  doctorId         String
+  doctor           User        @relation("DoctorPrescriptions", fields: [doctorId], references: [id])
+  patientId        String
+  patient          User        @relation("PatientPrescriptions", fields: [patientId], references: [id])
+  hospitalId       String?
+  hospital         Hospital?   @relation(fields: [hospitalId], references: [id])
+  medications      String // İlaç listesi (JSON veya string)
+  diagnosis        String? // Tanı
+  notes            String? // Notlar
+  prescriptionDate DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@map("prescriptions")
+}
+
+model MedicalReport {
+  id                String    @id @default(cuid())
+  appointmentId     String?
+  doctorId          String
+  doctor            User      @relation("DoctorReports", fields: [doctorId], references: [id])
+  patientId         String
+  patient           User      @relation("PatientReports", fields: [patientId], references: [id])
+  hospitalId        String?
+  hospital          Hospital? @relation(fields: [hospitalId], references: [id])
+  patientDocumentId String? // Hasta belgesi ile ilişki
+  reportType        String // Rapor tipi (Muayene, Tahlil, Röntgen vs.)
+  title             String // Rapor başlığı
+  content           String // Rapor içeriği (AI tarafından oluşturulabilir)
+  fileUrl           String? // Dosya URL'i (varsa)
+  aiGenerated       Boolean   @default(false) // AI tarafından oluşturuldu mu?
+  doctorNotes       String? // Doktor notları (red durumunda veya düzenleme için)
+  approvalStatus    String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedAt        DateTime?
+  approvedBy        String? // Onaylayan doktor ID
+  rejectionReason   String? // Red sebebi
+  reportDate        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("medical_reports")
+}
+
+model VideoRecording {
+  id               String      @id @default(cuid())
+  appointmentId    String
+  appointment      Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  doctorId         String
+  doctor           User        @relation("DoctorVideoRecordings", fields: [doctorId], references: [id])
+  patientId        String
+  patient          User        @relation("PatientVideoRecordings", fields: [patientId], references: [id])
+  hospitalId       String?
+  hospital         Hospital?   @relation(fields: [hospitalId], references: [id])
+  videoUrl         String // Video kayıt URL'i
+  recordingFileUrl String? // Kaydedilmiş video dosyası URL'i (Jitsi kaydı)
+  duration         Int? // Süre (saniye)
+  recordingDate    DateTime    @default(now())
+  notes            String? // Görüşme notları
+  consentGiven     Boolean     @default(false) // Hasta rızası verildi mi?
+  consentDate      DateTime? // Rıza verilme tarihi
+  consentIp        String? // Rıza verilirken IP adresi
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@map("video_recordings")
+}
+
+model DoctorReview {
+  id        String        @id @default(cuid())
+  doctorId  String
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5 arası puan
+  comment   String // Yorum metni
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([doctorId, patientId]) // Bir hasta bir doktora sadece bir yorum yapabilir
+  @@map("doctor_reviews")
+}
+
+model PatientDocument {
+  id              String         @id @default(cuid())
+  patientId       String
+  patient         PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointmentId   String? // Randevu ID (randevu ile ilişkilendirme)
+  appointment     Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  title           String // Belge başlığı
+  documentType    String // Belge tipi (Tahlil, Röntgen, MR, Reçete vs.)
+  fileUrl         String // Dosya URL'i
+  uploadedBy      String // Yükleyen kişinin ID'si
+  description     String? // Açıklama
+  documentDate    DateTime? // Belge tarihi
+  aiAnalyzed      Boolean        @default(false) // AI tarafından analiz edildi mi?
+  medicalReportId String? // Oluşturulan MedicalReport ID
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("patient_documents")
+}
+
+model MedicalHistory {
+  id        String         @id @default(cuid())
+  patientId String
+  patient   PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String? // İlgili doktor
+  diagnosis String // Tanı
+  treatment String? // Tedavi
+  notes     String? // Notlar
+  visitDate DateTime // Muayene tarihi
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("medical_histories")
+}
+
+model DoctorDocument {
+  id           String        @id @default(cuid())
+  doctorId     String
+  doctor       DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  documentType String // Belge tipi (DIPLOMA, TTB_BELGESI, UZMANLIK_BELGESI, KIMLIK)
+  fileUrl      String // Dosya URL'i
+  fileName     String // Orijinal dosya adı
+  description  String? // Açıklama
+  uploadedAt   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("doctor_documents")
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  type      String // EMAIL_VERIFICATION
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("verification_tokens")
+}
+
+model FavoriteDoctor {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   User     @relation("PatientFavorites", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  doctor    User     @relation("DoctorFavorites", fields: [doctorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([patientId, doctorId]) // Bir hasta bir doktoru sadece bir kez favorilere ekleyebilir
+  @@map("favorite_doctors")
+}
+
+model DoctorMessage {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   User     @relation("PatientMessages", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  doctor    User     @relation("DoctorMessages", fields: [doctorId], references: [id], onDelete: Cascade)
+  hospitalId String?
+  hospital   Hospital? @relation(fields: [hospitalId], references: [id])
+  message   String   // Hastanın mesajı
+  status    String   @default("PENDING") // PENDING, ACTIVE, CLOSED, BLOCKED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  startedAt DateTime? // Doktor görüşmeyi başlattığında
+  closedAt  DateTime? // Doktor görüşmeyi bitirdiğinde
+  blockedAt DateTime? // Doktor engellediğinde
+
+  // Mesaj ekleri
+  attachments MessageAttachment[]
+
+  @@map("doctor_messages")
+}
+
+model MessageAttachment {
+  id        String        @id @default(cuid())
+  messageId String
+  message   DoctorMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName  String        // Orijinal dosya adı
+  fileUrl   String        // Dosya URL'i
+  fileSize  Int?          // Dosya boyutu (bytes)
+  fileType  String?       // Dosya tipi (MIME type)
+  uploadedAt DateTime     @default(now())
+
+  @@map("message_attachments")
+}
+
+model FollowedPatient {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    User     @relation("DoctorFollows", fields: [doctorId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User     @relation("PatientFollows", fields: [patientId], references: [id], onDelete: Cascade)
+  notes     String?  // Doktorun hasta hakkında notları
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, patientId]) // Bir doktor bir hastayı sadece bir kez takip edebilir
+  @@map("followed_patients")
+}

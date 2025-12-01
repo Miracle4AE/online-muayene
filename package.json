@@ -1,0 +1,52 @@
+{
+  "name": "online-muayene",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "create-test-doctor": "node scripts/create-test-doctor.js",
+    "create-test-patient": "node scripts/create-test-patient-and-appointment.js",
+    "create-test-report": "node scripts/create-test-report.js",
+    "create-hospitals": "node scripts/create-hospitals.js",
+    "backup": "node scripts/manual-backup.js",
+    "hash-password": "node scripts/hash-admin-password.js",
+    "prepare-telif": "node scripts/prepare-telif-basvurusu.js",
+    "create-demo-accounts": "node scripts/create-demo-accounts.js"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "^3.6.0",
+    "iyzipay": "^2.0.64",
+    "lucide-react": "^0.400.0",
+    "next": "^14.2.0",
+    "next-auth": "^4.24.5",
+    "nodemailer": "^7.0.10",
+    "openai": "^6.8.1",
+    "pdf-parse": "^2.4.5",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.14.0",
+    "@types/nodemailer": "^7.0.3",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0",
+    "postcss": "^8.4.38",
+    "prisma": "5.22.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.5.0"
+  }
+}
