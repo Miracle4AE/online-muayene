@@ -128,12 +128,12 @@ export default function DoctorProfilePage() {
       reader.readAsDataURL(file);
 
       // Dosyayı yükle
-      const formData = new FormData();
-      formData.append("file", file);
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
 
       const response = await fetch("/api/upload", {
         method: "POST",
-        body: formData,
+        body: uploadFormData,
       });
 
       const data = await response.json();
