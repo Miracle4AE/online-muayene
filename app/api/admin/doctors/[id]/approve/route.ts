@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Build sırasında statik olarak analiz edilmesini engelle
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 function isAdmin(request: NextRequest): boolean {
   const adminToken = request.cookies.get("admin_token");
   if (!adminToken) return false;
@@ -17,7 +21,7 @@ function isAdmin(request: NextRequest): boolean {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     if (!isAdmin(request)) {
@@ -28,11 +32,20 @@ export async function POST(
     }
 
     const adminToken = request.cookies.get("admin_token");
-    const decoded = Buffer.from(adminToken!.value, "base64").toString("utf-8");
+    if (!adminToken) {
+      return NextResponse.json(
+        { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
+        { status: 403 }
+      );
+    }
+
+    const decoded = Buffer.from(adminToken.value, "base64").toString("utf-8");
     const [email] = decoded.split(":");
     const userId = email; // Email'i userId olarak kullan
 
-    const doctorId = params.id;
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    const doctorId = resolvedParams.id;
 
     // Doktor profilini bul
     const doctorProfile = await prisma.doctorProfile.findUnique({

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
+// Build sırasında statik olarak analiz edilmesini engelle
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const updateDoctorSchema = z.object({
   name: z.string().min(1, "İsim gereklidir").optional(),
   email: z.string().email("Geçerli bir email adresi giriniz").optional(),
@@ -46,7 +50,7 @@ function getAdminInfo(request: NextRequest): { email: string; hospital: string }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const adminInfo = getAdminInfo(request);
@@ -57,7 +61,9 @@ export async function PUT(
       );
     }
 
-    const doctorId = params.id;
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    const doctorId = resolvedParams.id;
     const body = await request.json();
     const validatedData = updateDoctorSchema.parse(body);
 

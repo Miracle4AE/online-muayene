@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Build sırasında statik olarak analiz edilmesini engelle
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 function getAdminInfo(request: NextRequest): { email: string; hospital: string } | null {
   const adminToken = request.cookies.get("admin_token");
   if (!adminToken) return null;
@@ -29,7 +33,7 @@ function getAdminInfo(request: NextRequest): { email: string; hospital: string }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const adminInfo = getAdminInfo(request);
@@ -40,7 +44,9 @@ export async function DELETE(
       );
     }
 
-    const doctorId = params.id;
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    const doctorId = resolvedParams.id;
 
     // Doktorun admin'in hastanesinde olup olmadığını kontrol et
     const doctor = await prisma.user.findUnique({
