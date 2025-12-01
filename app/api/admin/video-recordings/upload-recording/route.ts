@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { verifyAdminAccess } from "@/lib/auth-helpers";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,20 +17,23 @@ export async function POST(request: NextRequest) {
     // Admin veya doktor authentication kontrolü
     let isAuthenticated = false;
     let userRole = null;
+    let adminInfo: { email: string; hospital: string } | null = null;
     
     if (adminToken) {
       // Admin authentication kontrolü
-      const adminInfoResponse = await fetch(
-        `${request.nextUrl.origin}/api/admin/info`,
-        {
-          headers: {
-            Cookie: `admin_token=${adminToken.value}`,
-          },
+      const { isValid, hospitalId, email } = await verifyAdminAccess(request);
+      if (isValid && hospitalId && email) {
+        const hospital = await prisma.hospital.findUnique({
+          where: { id: hospitalId },
+        });
+        if (hospital) {
+          isAuthenticated = true;
+          userRole = "ADMIN";
+          adminInfo = {
+            email,
+            hospital: hospital.name,
+          };
         }
-      );
-      if (adminInfoResponse.ok) {
-        isAuthenticated = true;
-        userRole = "ADMIN";
       }
     } else if (sessionToken) {
       // NextAuth session kontrolü (doktor için)
@@ -109,25 +116,8 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
-    } else if (userRole === "ADMIN") {
+    } else if (userRole === "ADMIN" && adminInfo) {
       // Admin ise, hastane kontrolü yap
-      const adminInfoResponse = await fetch(
-        `${request.nextUrl.origin}/api/admin/info`,
-        {
-          headers: {
-            Cookie: `admin_token=${adminToken?.value}`,
-          },
-        }
-      );
-
-      if (!adminInfoResponse.ok) {
-        return NextResponse.json(
-          { error: "Admin bilgileri alınamadı" },
-          { status: 401 }
-        );
-      }
-
-      const adminInfo = await adminInfoResponse.json();
       if (
         !appointment.doctor.doctorProfile ||
         appointment.doctor.doctorProfile.hospital !== adminInfo.hospital
