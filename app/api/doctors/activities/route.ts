@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       const approvedReports = await prisma.medicalReport.findMany({
         where: {
           doctorId: doctorId,
-          status: "APPROVED",
+          approvalStatus: "APPROVED",
         },
         include: {
           patient: {
