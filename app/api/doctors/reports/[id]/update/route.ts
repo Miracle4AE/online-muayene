@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     // Header'dan user ID ve role'ü al
@@ -27,8 +30,10 @@ export async function PUT(
       );
     }
 
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
     const doctorId = userId;
-    const reportId = params.id;
+    const reportId = resolvedParams.id;
 
     // Request body'den güncellenecek verileri al
     const body = await request.json();
