@@ -34,10 +34,9 @@ export async function GET(request: NextRequest) {
     const hospital = adminInfo.hospital;
 
     // Query parametrelerini al
-    const { searchParams } = new URL(request.url);
-    const doctorId = searchParams.get("doctorId");
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const doctorId = request.nextUrl.searchParams.get("doctorId");
+    const startDate = request.nextUrl.searchParams.get("startDate");
+    const endDate = request.nextUrl.searchParams.get("endDate");
 
     // Tarih filtreleri
     const dateFilter: any = {};
@@ -54,6 +53,7 @@ export async function GET(request: NextRequest) {
     const whereClause: any = {
       doctor: {
         doctorProfile: {
+          isNot: null, // doctorProfile null olmamalı
           hospital: hospital,
         },
       },
