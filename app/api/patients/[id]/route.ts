@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    
     // Header'dan user bilgilerini al
     const userId = request.headers.get("x-user-id");
     const userRole = request.headers.get("x-user-role");
@@ -39,7 +45,7 @@ export async function GET(
       );
     }
 
-    const patientId = params.id;
+    const patientId = resolvedParams.id;
     const doctorHospital = doctor.doctorProfile.hospital || "";
 
     // Hasta detaylarını getir

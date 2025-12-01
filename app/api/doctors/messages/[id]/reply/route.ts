@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const replyMessageSchema = z.object({
   reply: z.string().min(1, "Yanıt mesajı gerekli").max(2000, "Yanıt en fazla 2000 karakter olabilir"),
 });
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     // Authentication kontrolü
@@ -31,8 +34,10 @@ export async function POST(
       );
     }
 
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
     const doctorId = userId;
-    const messageId = params.id;
+    const messageId = resolvedParams.id;
     const body = await request.json();
     const validatedData = replyMessageSchema.parse(body);
 

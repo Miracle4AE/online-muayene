@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     // Header'dan user ID ve role'ü al
@@ -27,8 +30,10 @@ export async function GET(
       );
     }
 
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
     const doctorId = userId;
-    const appointmentId = params.id;
+    const appointmentId = resolvedParams.id;
 
     // Randevuyu kontrol et
     const appointment = await prisma.appointment.findUnique({

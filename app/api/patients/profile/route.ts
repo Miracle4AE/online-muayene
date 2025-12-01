@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { patientProfileUpdateSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get("x-user-id");

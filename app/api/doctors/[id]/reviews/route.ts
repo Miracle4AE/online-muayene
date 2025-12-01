@@ -4,13 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { doctorReviewSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Yorumları listele
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const doctorId = params.id;
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    const doctorId = resolvedParams.id;
 
     // Doktorun var olduğunu kontrol et
     const doctor = await prisma.user.findUnique({
@@ -55,9 +60,12 @@ export async function GET(
 // Yorum ekle (sadece hasta yapabilir)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    
     const token = await getToken({ 
       req: request,
       secret: process.env.NEXTAUTH_SECRET 
@@ -70,7 +78,7 @@ export async function POST(
       );
     }
 
-    const doctorId = params.id;
+    const doctorId = resolvedParams.id;
     const body = await request.json();
     const validatedData = doctorReviewSchema.parse(body);
 
