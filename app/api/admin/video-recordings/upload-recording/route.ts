@@ -128,7 +128,10 @@ export async function POST(request: NextRequest) {
       }
 
       const adminInfo = await adminInfoResponse.json();
-      if (appointment.doctor.doctorProfile.hospital !== adminInfo.hospital) {
+      if (
+        !appointment.doctor.doctorProfile ||
+        appointment.doctor.doctorProfile.hospital !== adminInfo.hospital
+      ) {
         return NextResponse.json(
           { error: "Bu randevuya erişim yetkiniz yok" },
           { status: 403 }
