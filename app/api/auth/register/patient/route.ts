@@ -5,6 +5,9 @@ import { patientRegisterSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 import { encryptTcKimlik } from "@/lib/encryption";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

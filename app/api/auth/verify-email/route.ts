@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Email doğrulama token'ı oluştur
 export async function POST(request: NextRequest) {
   try {

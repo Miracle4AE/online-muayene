@@ -4,6 +4,9 @@ import { sendEmail, emailTemplates } from "@/lib/email";
 import crypto from "crypto";
 import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   // Rate limiting kontrolü
   const limit = rateLimit(request, RATE_LIMITS.forgotPassword);
