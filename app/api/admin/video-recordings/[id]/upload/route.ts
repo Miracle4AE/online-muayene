@@ -3,39 +3,46 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { verifyAdminAccess } from "@/lib/auth-helpers";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const recordingId = params.id;
+    // Params'ı resolve et (Next.js 15+ için)
+    const resolvedParams = await Promise.resolve(params);
+    const recordingId = resolvedParams.id;
 
     // Admin authentication
-    const adminToken = request.cookies.get("admin_token");
-    if (!adminToken) {
+    const { isValid, hospitalId, email } = await verifyAdminAccess(request);
+    
+    if (!isValid || !hospitalId) {
       return NextResponse.json(
         { error: "Yetkisiz erişim" },
         { status: 401 }
       );
     }
 
-    // Get admin info
-    const adminInfoResponse = await fetch(
-      `${request.nextUrl.origin}/api/admin/info`,
-      {
-        headers: {
-          Cookie: `admin_token=${adminToken.value}`,
-        },
-      }
-    );
+    // Hospital bilgisini al
+    const hospital = await prisma.hospital.findUnique({
+      where: { id: hospitalId },
+    });
 
-    if (!adminInfoResponse.ok) {
+    if (!hospital) {
       return NextResponse.json(
-        { error: "Admin bilgileri alınamadı" },
-        { status: 401 }
+        { error: "Hastane bulunamadı" },
+        { status: 404 }
       );
     }
+
+    const adminInfo = {
+      email,
+      hospital: hospital.name,
+    };
 
     // Get recording
     const recording = await prisma.videoRecording.findUnique({
@@ -65,7 +72,6 @@ export async function POST(
     }
 
     // Check if admin has access to this recording's hospital
-    const adminInfo = await adminInfoResponse.json();
     if (
       !recording.appointment.doctor.doctorProfile ||
       recording.appointment.doctor.doctorProfile.hospital !== adminInfo.hospital
