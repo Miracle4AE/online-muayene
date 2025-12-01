@@ -7,10 +7,15 @@ import { join } from "path";
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// OpenAI client'ı oluştur
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
+// OpenAI client'ı lazy initialize et (build sırasında çalışmasın)
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +37,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // OpenAI client'ı oluştur (sadece runtime'da)
+    const openai = getOpenAIClient();
 
     // Dosyayı oku
     const filePath = join(process.cwd(), "public", fileUrl.replace("/documents/", ""));

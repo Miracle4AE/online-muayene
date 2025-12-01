@@ -5,9 +5,15 @@ import { getToken } from "next-auth/jwt";
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// OpenAI client'ı lazy initialize et (build sırasında çalışmasın)
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 // Türkçe uzmanlık alanları listesi (doctors sayfasındaki uzmanlık alanlarıyla eşleşmeli)
 const SPECIALIZATIONS = [
@@ -58,6 +64,9 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // OpenAI client'ı oluştur (sadece runtime'da)
+    const openai = getOpenAIClient();
 
     // AI'ya şikayeti analiz ettir ve uzmanlık öner
     const systemPrompt = `Sen bir tıbbi danışman asistanısın. Hastanın şikayetlerini analiz edip en uygun doktor uzmanlık alanını önermelisin.
