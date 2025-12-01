@@ -52,6 +52,56 @@ export default function MeetingPage() {
     }
   }, [appointmentId, meetingId]);
 
+  // Kayıt dosyasını sunucuya yükle
+  const uploadRecording = useCallback(async (blob: Blob) => {
+    if (!appointmentId) return;
+
+    setUploadingRecording(true);
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", blob, `recording-${appointmentId}-${Date.now()}.webm`);
+      formData.append("appointmentId", appointmentId);
+
+      const xhr = new XMLHttpRequest();
+
+      // Upload progress takibi
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setUploadProgress(percentComplete);
+        }
+      });
+
+      // Upload tamamlandığında
+      xhr.addEventListener("load", () => {
+        if (xhr.status === 200) {
+          console.log("Kayıt dosyası başarıyla yüklendi");
+          setUploadProgress(100);
+        } else {
+          console.error("Kayıt dosyası yüklenemedi:", xhr.statusText);
+          setError("Kayıt dosyası yüklenemedi. Lütfen tekrar deneyin.");
+        }
+        setUploadingRecording(false);
+      });
+
+      // Upload hatası
+      xhr.addEventListener("error", () => {
+        console.error("Kayıt dosyası yükleme hatası");
+        setError("Kayıt dosyası yüklenirken bir hata oluştu.");
+        setUploadingRecording(false);
+      });
+
+      xhr.open("POST", `/api/admin/video-recordings/upload-recording`);
+      xhr.send(formData);
+    } catch (error: any) {
+      console.error("Kayıt yükleme hatası:", error);
+      setError(error.message || "Kayıt dosyası yüklenirken bir hata oluştu.");
+      setUploadingRecording(false);
+    }
+  }, [appointmentId]);
+
   // Otomatik kayıt başlatma (sadece doktor için)
   const startRecording = useCallback(async () => {
     if (!appointmentId || session?.user?.role !== "DOCTOR") return;
@@ -121,8 +171,10 @@ export default function MeetingPage() {
       const mainVideo = videoElements[0] as HTMLVideoElement;
       
       // Video elementinden stream yakala (tarayıcı desteği varsa)
-      if (mainVideo.captureStream) {
-        const stream = mainVideo.captureStream(30); // 30 FPS
+      // captureStream deneysel bir özellik, TypeScript'te tanımlı değil
+      const videoWithCaptureStream = mainVideo as any;
+      if (videoWithCaptureStream.captureStream) {
+        const stream = videoWithCaptureStream.captureStream(30); // 30 FPS
         streamRef.current = stream;
 
         // MediaRecorder oluştur
@@ -182,56 +234,6 @@ export default function MeetingPage() {
       console.error("Kayıt durdurulamadı:", error);
     }
   }, [isRecording]);
-
-  // Kayıt dosyasını sunucuya yükle
-  const uploadRecording = useCallback(async (blob: Blob) => {
-    if (!appointmentId) return;
-
-    setUploadingRecording(true);
-    setUploadProgress(0);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", blob, `recording-${appointmentId}-${Date.now()}.webm`);
-      formData.append("appointmentId", appointmentId);
-
-      const xhr = new XMLHttpRequest();
-
-      // Upload progress takibi
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setUploadProgress(percentComplete);
-        }
-      });
-
-      // Upload tamamlandığında
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          console.log("Kayıt dosyası başarıyla yüklendi");
-          setUploadProgress(100);
-        } else {
-          console.error("Kayıt dosyası yüklenemedi:", xhr.statusText);
-          setError("Kayıt dosyası yüklenemedi. Lütfen tekrar deneyin.");
-        }
-        setUploadingRecording(false);
-      });
-
-      // Upload hatası
-      xhr.addEventListener("error", () => {
-        console.error("Kayıt dosyası yükleme hatası");
-        setError("Kayıt dosyası yüklenirken bir hata oluştu.");
-        setUploadingRecording(false);
-      });
-
-      xhr.open("POST", `/api/admin/video-recordings/upload-recording`);
-      xhr.send(formData);
-    } catch (error: any) {
-      console.error("Kayıt yükleme hatası:", error);
-      setError(error.message || "Kayıt dosyası yüklenirken bir hata oluştu.");
-      setUploadingRecording(false);
-    }
-  }, [appointmentId]);
 
   // Jitsi Meet script'ini yükle
   useEffect(() => {
