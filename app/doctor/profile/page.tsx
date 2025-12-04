@@ -53,6 +53,7 @@ export default function DoctorProfilePage() {
     if (session && session.user.role === "DOCTOR") {
       fetchProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const fetchProfile = async () => {
@@ -350,6 +351,7 @@ export default function DoctorProfilePage() {
                   <div className="relative">
                     {preview || formData.photoUrl ? (
                       <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={preview || formData.photoUrl || ""}
                           alt={profile.name}

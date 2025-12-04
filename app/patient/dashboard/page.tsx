@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
@@ -143,18 +144,21 @@ export default function PatientDashboard() {
       fetchPatientDocuments();
       fetchPatientProfilePermissions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   useEffect(() => {
     if (showFavoritesModal && session && session.user?.id) {
       fetchFavoriteDoctors();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showFavoritesModal, session]);
 
   useEffect(() => {
     if (session && session.user?.id) {
       fetchPatientMessages();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   // Her 30 saniyede bir mesajları kontrol et (yeni yanıtlar için)
@@ -166,6 +170,7 @@ export default function PatientDashboard() {
     }, 30000); // 30 saniye
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const fetchAppointments = async () => {

@@ -18,6 +18,7 @@ function VerifyEmailForm() {
       setStatus("error");
       setMessage("Geçersiz doğrulama linki");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const verifyEmail = async () => {

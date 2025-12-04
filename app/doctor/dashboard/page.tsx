@@ -159,6 +159,7 @@ export default function DoctorDashboardPage() {
       fetchActivities();
       fetchFollowedPatients();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status, router]);
 
   const fetchVerificationStatus = async () => {

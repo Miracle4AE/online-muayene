@@ -66,6 +66,7 @@ export default function DoctorsPage() {
 
   useEffect(() => {
     fetchDoctors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specialization, search, city, hospital]);
 
   const fetchDoctors = async () => {
@@ -199,6 +200,7 @@ export default function DoctorsPage() {
               >
                 <div className="flex flex-col items-center text-center">
                   {doctor.profile.photoUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={doctor.profile.photoUrl}
                       alt={doctor.name}

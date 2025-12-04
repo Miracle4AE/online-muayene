@@ -110,6 +110,7 @@ export default function PatientProfilePage() {
     if (session && session.user.role === "PATIENT") {
       fetchProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const parseAllergies = (allergiesString: string | null) => {

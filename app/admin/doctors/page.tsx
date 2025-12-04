@@ -343,6 +343,7 @@ export default function AdminDoctorsPage() {
     } else if (activeTab === "messages") {
       fetchMessages();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedStatus, selectedDoctorForPrescriptions, selectedDoctorForReports, selectedReportType, selectedDoctorForRecordings, selectedDoctorForPatients, prescriptionSearchId, doctorNameSearch, patientTcKimlikNoSearch, patientNameSearch, reportSearchId, doctorNameSearchReports, patientTcKimlikNoSearchReports, patientNameSearchReports, recordingSearchId, doctorNameSearchRecordings, patientTcKimlikNoSearchRecordings, patientNameSearchRecordings, doctorNameSearchPatients, patientTcKimlikNoSearchPatients, patientNameSearchPatients, selectedDoctorForBudget, budgetStartDate, budgetEndDate]);
   
   // Sayfa ilk yüklendiğinde sayıları çek
@@ -350,6 +351,7 @@ export default function AdminDoctorsPage() {
     if (activeTab === "doctors") {
       fetchDoctorCounts();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchPrescriptions = async () => {

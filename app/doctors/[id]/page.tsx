@@ -125,6 +125,7 @@ export default function DoctorPublicProfilePage() {
 
   useEffect(() => {
     fetchDoctorProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId]);
 
   useEffect(() => {
@@ -133,6 +134,7 @@ export default function DoctorPublicProfilePage() {
     } else {
       setCheckingFavorite(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, doctorId]);
 
   const checkFavoriteStatus = async () => {
@@ -474,6 +476,7 @@ export default function DoctorPublicProfilePage() {
         <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
           <div className="flex flex-col md:flex-row gap-6 mb-6">
             {doctor.profile.photoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={doctor.profile.photoUrl}
                 alt={doctor.name}
