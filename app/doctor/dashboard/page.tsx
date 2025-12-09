@@ -1551,7 +1551,7 @@ export default function DoctorDashboardPage() {
                         todayAppointments.map((appointment) => {
                           // Tarih parse kontrolü
                           let timeString = "-";
-                          if (appointment.appointmentDate) {
+                          if (appointment?.appointmentDate) {
                             try {
                               const appointmentDate = new Date(appointment.appointmentDate);
                               if (!isNaN(appointmentDate.getTime())) {
@@ -1565,13 +1565,20 @@ export default function DoctorDashboardPage() {
                             }
                           }
                           
-                          // Patient name kontrolü
-                          const patientName = appointment.patient?.name || 
-                                             appointment.patient?.email || 
-                                             "Bilinmeyen Hasta";
+                          // Patient name kontrolü - daha güvenli
+                          let patientName = "Bilinmeyen Hasta";
+                          if (appointment?.patient) {
+                            if (typeof appointment.patient === 'object' && appointment.patient !== null) {
+                              patientName = appointment.patient.name || 
+                                           appointment.patient.email || 
+                                           "Bilinmeyen Hasta";
+                            } else if (typeof appointment.patient === 'string') {
+                              patientName = appointment.patient;
+                            }
+                          }
                           
                           // Randevu tipini belirle (Online veya Yüz Yüze)
-                          const appointmentType = appointment.meetingLink ? "Online" : "Yüz Yüze";
+                          const appointmentType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
                           
                           const getStatusBadge = (status: string) => {
                             switch (status) {
@@ -1584,7 +1591,7 @@ export default function DoctorDashboardPage() {
                               case "CANCELLED":
                                 return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">İptal Edildi</span>;
                               default:
-                                return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{status}</span>;
+                                return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{status || "PENDING"}</span>;
                             }
                           };
 
@@ -1601,13 +1608,24 @@ export default function DoctorDashboardPage() {
                             }
                           };
                           
+                          // Debug: Render öncesi kontrol
+                          console.error("🎯 RENDER:", {
+                            id: appointment?.id,
+                            timeString,
+                            patientName,
+                            appointmentType,
+                            status: appointment?.status,
+                            hasAppointment: !!appointment,
+                            hasPatient: !!appointment?.patient,
+                          });
+                          
                           return (
-                            <tr key={appointment.id} className="border-b hover:bg-gray-50">
+                            <tr key={appointment?.id || Math.random()} className="border-b hover:bg-gray-50">
                               <td className="py-3 px-4 text-sm">{timeString}</td>
                               <td className="py-3 px-4 text-sm font-medium">{patientName}</td>
                               <td className="py-3 px-4 text-sm">{appointmentType}</td>
-                              <td className="py-3 px-4">{getStatusBadge(appointment.status || "PENDING")}</td>
-                              <td className="py-3 px-4">{getActionButton(appointment.status || "PENDING")}</td>
+                              <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
+                              <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING")}</td>
                             </tr>
                           );
                         })
