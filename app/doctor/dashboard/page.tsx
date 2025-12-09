@@ -1549,59 +1549,31 @@ export default function DoctorDashboardPage() {
                         </tr>
                       ) : (
                         todayAppointments.map((appointment) => {
-                          // Debug - console.error kullan çünkü production'da console.log kaldırılıyor
-                          console.error("🔍 Render edilen randevu:", {
-                            id: appointment.id,
-                            appointmentDate: appointment.appointmentDate,
-                            appointmentDateType: typeof appointment.appointmentDate,
-                            patient: appointment.patient,
-                            patientName: appointment.patient?.name,
-                            patientType: typeof appointment.patient,
-                            status: appointment.status,
-                            fullAppointment: appointment,
-                          });
-                          
                           // Tarih parse kontrolü
-                          let appointmentDate: Date | null = null;
                           let timeString = "-";
-                          
                           if (appointment.appointmentDate) {
                             try {
-                              appointmentDate = new Date(appointment.appointmentDate);
+                              const appointmentDate = new Date(appointment.appointmentDate);
                               if (!isNaN(appointmentDate.getTime())) {
                                 timeString = appointmentDate.toLocaleTimeString("tr-TR", {
                                   hour: "2-digit",
                                   minute: "2-digit",
                                 });
-                              } else {
-                                console.warn("⚠️ Geçersiz tarih:", appointment.appointmentDate);
                               }
                             } catch (e) {
-                              console.error("❌ Tarih parse hatası:", e, appointment.appointmentDate);
+                              console.error("❌ Tarih parse hatası:", e);
                             }
-                          } else {
-                            console.warn("⚠️ appointmentDate yok:", appointment);
                           }
-                          
-                          console.error("🔍 Parse edilen tarih:", {
-                            original: appointment.appointmentDate,
-                            parsed: appointmentDate,
-                            isValid: appointmentDate && !isNaN(appointmentDate.getTime()),
-                            timeString: timeString,
-                          });
                           
                           // Patient name kontrolü
                           const patientName = appointment.patient?.name || 
                                              appointment.patient?.email || 
                                              "Bilinmeyen Hasta";
                           
-                          console.error("🔍 Patient bilgisi:", {
-                            patient: appointment.patient,
-                            patientName: patientName,
-                            hasPatient: !!appointment.patient,
-                          });
+                          // Randevu tipini belirle (Online veya Yüz Yüze)
+                          const appointmentType = appointment.meetingLink ? "Online" : "Yüz Yüze";
                           
-                            const getStatusBadge = (status: string) => {
+                          const getStatusBadge = (status: string) => {
                             switch (status) {
                               case "COMPLETED":
                                 return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Tamamlandı</span>;
@@ -1628,16 +1600,6 @@ export default function DoctorDashboardPage() {
                                 return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
                             }
                           };
-
-                          // Randevu tipini belirle (Online veya Yüz Yüze)
-                          const appointmentType = appointment.meetingLink ? "Online" : "Yüz Yüze";
-                          
-                          console.error("🎨 Render için hazırlanan değerler:", {
-                            timeString,
-                            patientName,
-                            appointmentType,
-                            status: appointment.status,
-                          });
                           
                           return (
                             <tr key={appointment.id} className="border-b hover:bg-gray-50">
