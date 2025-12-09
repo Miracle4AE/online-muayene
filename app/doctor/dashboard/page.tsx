@@ -265,8 +265,11 @@ export default function DoctorDashboardPage() {
         console.warn("⚠️ Randevu listesi boş!");
       }
       
-      setTodayAppointments(data.appointments || []);
-      console.error("✅ State güncellendi, randevu sayısı:", data.appointments?.length || 0);
+      // State'i güncelle - array referansını değiştir
+      const appointmentsArray = Array.isArray(data.appointments) ? data.appointments : [];
+      console.error("📅 State'e atanacak array:", appointmentsArray.length, "randevu");
+      setTodayAppointments([...appointmentsArray]); // Yeni array referansı oluştur
+      console.error("✅ State güncellendi, randevu sayısı:", appointmentsArray.length);
     } catch (err: any) {
       console.error("❌ HATA:", err);
       console.error("❌ Hata mesajı:", err.message);
@@ -1541,14 +1544,15 @@ export default function DoctorDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {todayAppointments.length === 0 ? (
+                      {!todayAppointments || todayAppointments.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center py-4 text-gray-500">
                             Randevu bulunamadı
                           </td>
                         </tr>
                       ) : (
-                        todayAppointments.map((appointment) => {
+                        todayAppointments.map((appointment, index) => {
+                          console.error(`🔄 Mapping randevu ${index + 1}/${todayAppointments.length}:`, appointment?.id);
                           // Tarih parse kontrolü
                           let timeString = "-";
                           if (appointment?.appointmentDate) {
@@ -1619,11 +1623,14 @@ export default function DoctorDashboardPage() {
                             hasPatient: !!appointment?.patient,
                           });
                           
+                          // Final kontrol
+                          console.error(`✅ Render ediliyor: ${timeString} - ${patientName} - ${appointmentType}`);
+                          
                           return (
-                            <tr key={appointment?.id || Math.random()} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4 text-sm">{timeString}</td>
-                              <td className="py-3 px-4 text-sm font-medium">{patientName}</td>
-                              <td className="py-3 px-4 text-sm">{appointmentType}</td>
+                            <tr key={appointment?.id || `appointment-${index}`} className="border-b hover:bg-gray-50">
+                              <td className="py-3 px-4 text-sm">{timeString || "-"}</td>
+                              <td className="py-3 px-4 text-sm font-medium">{patientName || "Bilinmeyen"}</td>
+                              <td className="py-3 px-4 text-sm">{appointmentType || "Yüz Yüze"}</td>
                               <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
                               <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING")}</td>
                             </tr>
