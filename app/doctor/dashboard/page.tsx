@@ -238,6 +238,7 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
+      console.log("📅 Bugünkü randevular:", data.appointments);
       setTodayAppointments(data.appointments || []);
       // Modal otomatik açılmasın, sadece kullanıcı "Tümünü Gör" butonuna tıkladığında açılsın
     } catch (err: any) {
@@ -801,6 +802,7 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
+      console.log("🎥 Online görüşme için randevular:", data.appointments);
       setAvailableMeetings(data.appointments || []);
     } catch (err: any) {
       setError(err.message || "Randevular alınırken bir hata oluştu");
@@ -1545,13 +1547,16 @@ export default function DoctorDashboardPage() {
                           }
                         };
 
+                        // Randevu tipini belirle (Online veya Yüz Yüze)
+                        const appointmentType = appointment.meetingLink ? "Online" : "Yüz Yüze";
+                        
                         return (
                           <tr key={appointment.id} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4 text-sm">{timeString}</td>
-                            <td className="py-3 px-4 text-sm font-medium">{appointment.patient?.name || "Bilinmeyen"}</td>
-                            <td className="py-3 px-4 text-sm">{appointment.notes || "Randevu"}</td>
-                            <td className="py-3 px-4">{getStatusBadge(appointment.status)}</td>
-                            <td className="py-3 px-4">{getActionButton(appointment.status)}</td>
+                            <td className="py-3 px-4 text-sm">{timeString || "-"}</td>
+                            <td className="py-3 px-4 text-sm font-medium">{appointment.patient?.name || appointment.patient?.email || "Bilinmeyen Hasta"}</td>
+                            <td className="py-3 px-4 text-sm">{appointmentType}</td>
+                            <td className="py-3 px-4">{getStatusBadge(appointment.status || "PENDING")}</td>
+                            <td className="py-3 px-4">{getActionButton(appointment.status || "PENDING")}</td>
                           </tr>
                         );
                       })}

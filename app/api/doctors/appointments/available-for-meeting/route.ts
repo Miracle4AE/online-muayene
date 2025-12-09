@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Bugünkü ve gelecekteki CONFIRMED randevuları getir
+    // Bugünkü ve gelecekteki randevuları getir (CONFIRMED ve PENDING)
     // Not: Randevu saati geçmiş olsa bile bugün içindeyse göster (15 dakika tolerans)
     // Ayrıca gelecekteki tüm randevuları göster
     const fifteenMinutesAgo = new Date(now);
@@ -66,7 +66,9 @@ export async function GET(request: NextRequest) {
     const appointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorId,
-        status: "CONFIRMED",
+        status: {
+          in: ["CONFIRMED", "PENDING"], // PENDING randevuları da dahil et
+        },
         OR: [
           {
             // Bugün içindeki randevular (15 dakika tolerans ile)
