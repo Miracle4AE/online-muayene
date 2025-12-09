@@ -107,42 +107,63 @@ export async function GET(request: NextRequest) {
     };
 
     // Randevuları formatla
-    console.log("📅 Toplam randevu sayısı (filtre öncesi):", appointments.length);
-    const formattedAppointments = appointments
-      .filter((appointment) => {
-        const hasPatient = !!appointment.patient;
-        if (!hasPatient) {
-          console.log("⚠️ Patient olmayan randevu filtrelendi:", appointment.id);
+    console.log("📅 Toplam randevu sayısı:", appointments.length);
+    const formattedAppointments = appointments.map((appointment) => {
+        // Patient null kontrolü
+        if (!appointment.patient) {
+          console.log("⚠️ Patient null olan randevu:", appointment.id);
         }
-        return hasPatient;
-      })
-      .map((appointment) => {
+        
         const age = calculateAge(appointment.patient?.patientProfile?.dateOfBirth);
+        
+        // appointmentDate'i ISO string'e çevir
+        let appointmentDateStr: string;
+        if (appointment.appointmentDate instanceof Date) {
+          appointmentDateStr = appointment.appointmentDate.toISOString();
+        } else if (typeof appointment.appointmentDate === 'string') {
+          appointmentDateStr = appointment.appointmentDate;
+        } else {
+          appointmentDateStr = new Date(appointment.appointmentDate).toISOString();
+        }
         
         const formatted = {
           id: appointment.id,
-          appointmentDate: appointment.appointmentDate instanceof Date 
-            ? appointment.appointmentDate.toISOString() 
-            : appointment.appointmentDate,
-          status: appointment.status,
-          notes: appointment.notes,
-          meetingLink: appointment.meetingLink,
-          patient: {
-            id: appointment.patient?.id || "",
-            name: appointment.patient?.name || "Bilinmeyen Hasta",
-            email: appointment.patient?.email || "",
-            phone: appointment.patient?.phone || "",
+          appointmentDate: appointmentDateStr,
+          status: appointment.status || "PENDING",
+          notes: appointment.notes || null,
+          meetingLink: appointment.meetingLink || null,
+          patient: appointment.patient ? {
+            id: appointment.patient.id,
+            name: appointment.patient.name || "Bilinmeyen Hasta",
+            email: appointment.patient.email || "",
+            phone: appointment.patient.phone || "",
             age: age,
-            dateOfBirth: appointment.patient?.patientProfile?.dateOfBirth,
-            gender: appointment.patient?.patientProfile?.gender,
-            tcKimlikNo: appointment.patient?.patientProfile?.tcKimlikNo,
-            bloodType: appointment.patient?.patientProfile?.bloodType,
-            allergies: appointment.patient?.patientProfile?.allergies,
-            chronicDiseases: appointment.patient?.patientProfile?.chronicDiseases,
-            medications: appointment.patient?.patientProfile?.medications,
-            address: appointment.patient?.patientProfile?.address,
-            emergencyContact: appointment.patient?.patientProfile?.emergencyContact,
-            emergencyPhone: appointment.patient?.patientProfile?.emergencyPhone,
+            dateOfBirth: appointment.patient.patientProfile?.dateOfBirth,
+            gender: appointment.patient.patientProfile?.gender,
+            tcKimlikNo: appointment.patient.patientProfile?.tcKimlikNo,
+            bloodType: appointment.patient.patientProfile?.bloodType,
+            allergies: appointment.patient.patientProfile?.allergies,
+            chronicDiseases: appointment.patient.patientProfile?.chronicDiseases,
+            medications: appointment.patient.patientProfile?.medications,
+            address: appointment.patient.patientProfile?.address,
+            emergencyContact: appointment.patient.patientProfile?.emergencyContact,
+            emergencyPhone: appointment.patient.patientProfile?.emergencyPhone,
+          } : {
+            id: "",
+            name: "Bilinmeyen Hasta",
+            email: "",
+            phone: "",
+            age: null,
+            dateOfBirth: null,
+            gender: null,
+            tcKimlikNo: null,
+            bloodType: null,
+            allergies: null,
+            chronicDiseases: null,
+            medications: null,
+            address: null,
+            emergencyContact: null,
+            emergencyPhone: null,
           },
         };
         
@@ -151,6 +172,7 @@ export async function GET(request: NextRequest) {
           appointmentDate: formatted.appointmentDate,
           patientName: formatted.patient.name,
           status: formatted.status,
+          hasPatient: !!appointment.patient,
         });
         
         return formatted;
