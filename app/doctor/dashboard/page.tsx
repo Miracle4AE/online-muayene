@@ -94,6 +94,8 @@ export default function DoctorDashboardPage() {
   const [pendingReports, setPendingReports] = useState<any[]>([]);
   const [loadingPendingReports, setLoadingPendingReports] = useState(false);
   const [processingReport, setProcessingReport] = useState<string | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedReportForReject, setSelectedReportForReject] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -1614,9 +1616,15 @@ export default function DoctorDashboardPage() {
                         };
 
                         const getActionButton = (status: string, appointmentId: string) => {
-                          const handleClick = () => {
+                          const handleClick = (e: React.MouseEvent) => {
+                            e.preventDefault();
+                            e.stopPropagation();
                             console.error("🔘 Detay butonuna tıklandı:", appointmentId);
-                            router.push(`/doctor/appointments/${appointmentId}`);
+                            const appointment = todayAppointments.find(apt => apt?.id === appointmentId);
+                            if (appointment) {
+                              setSelectedAppointment(appointment);
+                              setShowAppointmentModal(true);
+                            }
                           };
                           
                           switch (status) {
@@ -4092,6 +4100,118 @@ export default function DoctorDashboardPage() {
           </p>
         </div>
       </footer>
+
+      {/* Appointment Detail Modal */}
+      {showAppointmentModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">Randevu Detayları</h2>
+                <button
+                  onClick={() => {
+                    setShowAppointmentModal(false);
+                    setSelectedAppointment(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Hasta Bilgileri</h3>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {selectedAppointment?.patient?.name || selectedAppointment?.patient?.email || "Bilinmeyen Hasta"}
+                  </p>
+                  {selectedAppointment?.patient?.email && (
+                    <p className="text-sm text-gray-600">{selectedAppointment.patient.email}</p>
+                  )}
+                  {selectedAppointment?.patient?.phone && (
+                    <p className="text-sm text-gray-600">{selectedAppointment.patient.phone}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Randevu Tarihi ve Saati</h3>
+                  <p className="text-lg text-gray-900">
+                    {selectedAppointment?.appointmentDate
+                      ? new Date(selectedAppointment.appointmentDate).toLocaleString("tr-TR", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "-"}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Randevu Tipi</h3>
+                  <p className="text-lg text-gray-900">
+                    {selectedAppointment?.meetingLink ? "Online" : "Yüz Yüze"}
+                  </p>
+                  {selectedAppointment?.meetingLink && (
+                    <a
+                      href={selectedAppointment.meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
+                    >
+                      Görüşme Linki →
+                    </a>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Durum</h3>
+                  <p className="text-lg text-gray-900">
+                    {selectedAppointment?.status === "PENDING" && "Bekliyor"}
+                    {selectedAppointment?.status === "CONFIRMED" && "Onaylandı"}
+                    {selectedAppointment?.status === "IN_PROGRESS" && "Devam Ediyor"}
+                    {selectedAppointment?.status === "COMPLETED" && "Tamamlandı"}
+                    {selectedAppointment?.status === "CANCELLED" && "İptal Edildi"}
+                    {!selectedAppointment?.status && "Bilinmeyen"}
+                  </p>
+                </div>
+                
+                {selectedAppointment?.notes && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">Notlar</h3>
+                    <p className="text-gray-900">{selectedAppointment.notes}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-6 flex gap-3">
+                {selectedAppointment?.meetingLink && (
+                  <a
+                    href={selectedAppointment.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-center"
+                  >
+                    Görüşmeye Katıl
+                  </a>
+                )}
+                <button
+                  onClick={() => {
+                    setShowAppointmentModal(false);
+                    setSelectedAppointment(null);
+                  }}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Kapat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
