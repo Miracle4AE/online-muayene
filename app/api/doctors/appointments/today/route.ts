@@ -107,11 +107,11 @@ export async function GET(request: NextRequest) {
     };
 
     // Randevuları formatla
-    console.log("📅 Toplam randevu sayısı:", appointments.length);
+    console.error("📅 Toplam randevu sayısı:", appointments.length);
     const formattedAppointments = appointments.map((appointment) => {
         // Patient null kontrolü
         if (!appointment.patient) {
-          console.log("⚠️ Patient null olan randevu:", appointment.id);
+          console.warn("⚠️ Patient null olan randevu:", appointment.id);
         }
         
         const age = calculateAge(appointment.patient?.patientProfile?.dateOfBirth);
@@ -167,7 +167,7 @@ export async function GET(request: NextRequest) {
           },
         };
         
-        console.log("📅 Formatlanan randevu:", {
+        console.error("📅 Formatlanan randevu:", {
           id: formatted.id,
           appointmentDate: formatted.appointmentDate,
           patientName: formatted.patient.name,
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
         return formatted;
       });
     
-    console.log("📅 Formatlanan randevu sayısı:", formattedAppointments.length);
+    console.error("📅 Formatlanan randevu sayısı:", formattedAppointments.length);
 
     return NextResponse.json({
       appointments: formattedAppointments,

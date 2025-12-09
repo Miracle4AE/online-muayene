@@ -221,17 +221,17 @@ export default function DoctorDashboardPage() {
   };
 
   const fetchTodayAppointments = async () => {
-    console.log("🚀 fetchTodayAppointments çağrıldı");
-    console.log("🚀 Session:", session);
-    console.log("🚀 User ID:", session?.user?.id);
+    console.error("🚀 fetchTodayAppointments çağrıldı");
+    console.error("🚀 Session:", session);
+    console.error("🚀 User ID:", session?.user?.id);
     
     try {
       if (!session?.user?.id) {
-        console.log("❌ Session veya user ID yok, fonksiyon sonlandırılıyor");
+        console.error("❌ Session veya user ID yok, fonksiyon sonlandırılıyor");
         return;
       }
 
-      console.log("📡 API çağrısı yapılıyor...");
+      console.error("📡 API çağrısı yapılıyor...");
       setLoadingTodayAppointments(true);
       
       const response = await fetch("/api/doctors/appointments/today", {
@@ -242,8 +242,8 @@ export default function DoctorDashboardPage() {
         credentials: "include",
       });
 
-      console.log("📡 API Response Status:", response.status);
-      console.log("📡 API Response OK:", response.ok);
+      console.error("📡 API Response Status:", response.status);
+      console.error("📡 API Response OK:", response.ok);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -252,21 +252,21 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
-      console.log("✅ API'den veri geldi!");
-      console.log("📅 API'den gelen randevular:", JSON.stringify(data.appointments, null, 2));
-      console.log("📅 Randevu sayısı:", data.appointments?.length || 0);
+      console.error("✅ API'den veri geldi!");
+      console.error("📅 API'den gelen randevular:", JSON.stringify(data.appointments, null, 2));
+      console.error("📅 Randevu sayısı:", data.appointments?.length || 0);
       
       if (data.appointments && data.appointments.length > 0) {
-        console.log("📅 İlk randevu:", data.appointments[0]);
-        console.log("📅 İlk randevu patient:", data.appointments[0].patient);
-        console.log("📅 İlk randevu appointmentDate:", data.appointments[0].appointmentDate);
-        console.log("📅 İlk randevu patient name:", data.appointments[0].patient?.name);
+        console.error("📅 İlk randevu:", data.appointments[0]);
+        console.error("📅 İlk randevu patient:", data.appointments[0].patient);
+        console.error("📅 İlk randevu appointmentDate:", data.appointments[0].appointmentDate);
+        console.error("📅 İlk randevu patient name:", data.appointments[0].patient?.name);
       } else {
-        console.log("⚠️ Randevu listesi boş!");
+        console.warn("⚠️ Randevu listesi boş!");
       }
       
       setTodayAppointments(data.appointments || []);
-      console.log("✅ State güncellendi, randevu sayısı:", data.appointments?.length || 0);
+      console.error("✅ State güncellendi, randevu sayısı:", data.appointments?.length || 0);
     } catch (err: any) {
       console.error("❌ HATA:", err);
       console.error("❌ Hata mesajı:", err.message);
@@ -274,7 +274,7 @@ export default function DoctorDashboardPage() {
       setError(err.message || "Bir hata oluştu");
     } finally {
       setLoadingTodayAppointments(false);
-      console.log("🏁 fetchTodayAppointments tamamlandı");
+      console.error("🏁 fetchTodayAppointments tamamlandı");
     }
   };
 
@@ -1549,8 +1549,8 @@ export default function DoctorDashboardPage() {
                         </tr>
                       ) : (
                         todayAppointments.map((appointment) => {
-                          // Debug
-                          console.log("🔍 Render edilen randevu:", {
+                          // Debug - console.error kullan çünkü production'da console.log kaldırılıyor
+                          console.error("🔍 Render edilen randevu:", {
                             id: appointment.id,
                             appointmentDate: appointment.appointmentDate,
                             appointmentDateType: typeof appointment.appointmentDate,
@@ -1583,7 +1583,7 @@ export default function DoctorDashboardPage() {
                             console.warn("⚠️ appointmentDate yok:", appointment);
                           }
                           
-                          console.log("🔍 Parse edilen tarih:", {
+                          console.error("🔍 Parse edilen tarih:", {
                             original: appointment.appointmentDate,
                             parsed: appointmentDate,
                             isValid: appointmentDate && !isNaN(appointmentDate.getTime()),
@@ -1595,7 +1595,7 @@ export default function DoctorDashboardPage() {
                                              appointment.patient?.email || 
                                              "Bilinmeyen Hasta";
                           
-                          console.log("🔍 Patient bilgisi:", {
+                          console.error("🔍 Patient bilgisi:", {
                             patient: appointment.patient,
                             patientName: patientName,
                             hasPatient: !!appointment.patient,
@@ -1632,7 +1632,7 @@ export default function DoctorDashboardPage() {
                           // Randevu tipini belirle (Online veya Yüz Yüze)
                           const appointmentType = appointment.meetingLink ? "Online" : "Yüz Yüze";
                           
-                          console.log("🎨 Render için hazırlanan değerler:", {
+                          console.error("🎨 Render için hazırlanan değerler:", {
                             timeString,
                             patientName,
                             appointmentType,
