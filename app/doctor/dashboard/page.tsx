@@ -1527,19 +1527,34 @@ export default function DoctorDashboardPage() {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                {loadingTodayAppointments ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : todayAppointments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-gray-500 text-sm">Bugün için randevu bulunmuyor</p>
-                  </div>
-                ) : (
-                  <table className="w-full">
+                {(() => {
+                  console.error("🔍 RENDER CHECK:", {
+                    loading: loadingTodayAppointments,
+                    length: todayAppointments?.length || 0,
+                    appointments: todayAppointments
+                  });
+                  
+                  if (loadingTodayAppointments) {
+                    return (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    );
+                  }
+                  
+                  if (!todayAppointments || todayAppointments.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-gray-500 text-sm">Bugün için randevu bulunmuyor</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <table className="w-full">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Saat</th>
@@ -1598,16 +1613,49 @@ export default function DoctorDashboardPage() {
                           }
                         };
 
-                        const getActionButton = (status: string) => {
+                        const getActionButton = (status: string, appointmentId: string) => {
+                          const handleClick = () => {
+                            console.error("🔘 Detay butonuna tıklandı:", appointmentId);
+                            router.push(`/doctor/appointments/${appointmentId}`);
+                          };
+                          
                           switch (status) {
                             case "COMPLETED":
-                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
+                              return (
+                                <button 
+                                  onClick={handleClick}
+                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                                >
+                                  Detay
+                                </button>
+                              );
                             case "IN_PROGRESS":
-                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Devam Et</button>;
+                              return (
+                                <button 
+                                  onClick={handleClick}
+                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                                >
+                                  Devam Et
+                                </button>
+                              );
                             case "CONFIRMED":
-                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Başlat</button>;
+                              return (
+                                <button 
+                                  onClick={handleClick}
+                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                                >
+                                  Başlat
+                                </button>
+                              );
                             default:
-                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
+                              return (
+                                <button 
+                                  onClick={handleClick}
+                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
+                                >
+                                  Detay
+                                </button>
+                              );
                           }
                         };
                         
@@ -1631,13 +1679,14 @@ export default function DoctorDashboardPage() {
                             <td className="py-3 px-4 text-sm font-medium">{patientName || "Bilinmeyen"}</td>
                             <td className="py-3 px-4 text-sm">{appointmentType || "Yüz Yüze"}</td>
                             <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
-                            <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING")}</td>
+                            <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING", appointment?.id || "")}</td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                )}
+                  );
+                })()}
               </div>
             </div>
           </div>
