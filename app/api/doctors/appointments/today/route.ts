@@ -107,34 +107,36 @@ export async function GET(request: NextRequest) {
     };
 
     // Randevuları formatla
-    const formattedAppointments = appointments.map((appointment) => {
-      const age = calculateAge(appointment.patient.patientProfile?.dateOfBirth);
-      
-      return {
-        id: appointment.id,
-        appointmentDate: appointment.appointmentDate,
-        status: appointment.status,
-        notes: appointment.notes,
-        meetingLink: appointment.meetingLink,
-        patient: {
-          id: appointment.patient.id,
-          name: appointment.patient.name,
-          email: appointment.patient.email,
-          phone: appointment.patient.phone,
-          age: age,
-          dateOfBirth: appointment.patient.patientProfile?.dateOfBirth,
-          gender: appointment.patient.patientProfile?.gender,
-          tcKimlikNo: appointment.patient.patientProfile?.tcKimlikNo,
-          bloodType: appointment.patient.patientProfile?.bloodType,
-          allergies: appointment.patient.patientProfile?.allergies,
-          chronicDiseases: appointment.patient.patientProfile?.chronicDiseases,
-          medications: appointment.patient.patientProfile?.medications,
-          address: appointment.patient.patientProfile?.address,
-          emergencyContact: appointment.patient.patientProfile?.emergencyContact,
-          emergencyPhone: appointment.patient.patientProfile?.emergencyPhone,
-        },
-      };
-    });
+    const formattedAppointments = appointments
+      .filter((appointment) => appointment.patient) // Patient olmayan randevuları filtrele
+      .map((appointment) => {
+        const age = calculateAge(appointment.patient?.patientProfile?.dateOfBirth);
+        
+        return {
+          id: appointment.id,
+          appointmentDate: appointment.appointmentDate,
+          status: appointment.status,
+          notes: appointment.notes,
+          meetingLink: appointment.meetingLink,
+          patient: {
+            id: appointment.patient?.id || "",
+            name: appointment.patient?.name || "Bilinmeyen Hasta",
+            email: appointment.patient?.email || "",
+            phone: appointment.patient?.phone || "",
+            age: age,
+            dateOfBirth: appointment.patient?.patientProfile?.dateOfBirth,
+            gender: appointment.patient?.patientProfile?.gender,
+            tcKimlikNo: appointment.patient?.patientProfile?.tcKimlikNo,
+            bloodType: appointment.patient?.patientProfile?.bloodType,
+            allergies: appointment.patient?.patientProfile?.allergies,
+            chronicDiseases: appointment.patient?.patientProfile?.chronicDiseases,
+            medications: appointment.patient?.patientProfile?.medications,
+            address: appointment.patient?.patientProfile?.address,
+            emergencyContact: appointment.patient?.patientProfile?.emergencyContact,
+            emergencyPhone: appointment.patient?.patientProfile?.emergencyPhone,
+          },
+        };
+      });
 
     return NextResponse.json({
       appointments: formattedAppointments,

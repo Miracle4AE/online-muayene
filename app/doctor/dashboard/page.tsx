@@ -238,7 +238,6 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
-      console.log("📅 Bugünkü randevular:", data.appointments);
       setTodayAppointments(data.appointments || []);
       // Modal otomatik açılmasın, sadece kullanıcı "Tümünü Gör" butonuna tıkladığında açılsın
     } catch (err: any) {
@@ -802,7 +801,6 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
-      console.log("🎥 Online görüşme için randevular:", data.appointments);
       setAvailableMeetings(data.appointments || []);
     } catch (err: any) {
       setError(err.message || "Randevular alınırken bir hata oluştu");
@@ -1513,11 +1511,16 @@ export default function DoctorDashboardPage() {
                     </thead>
                     <tbody>
                       {todayAppointments.map((appointment) => {
-                        const appointmentDate = new Date(appointment.appointmentDate);
-                        const timeString = appointmentDate.toLocaleTimeString("tr-TR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
+                        // Tarih parse kontrolü
+                        const appointmentDate = appointment.appointmentDate 
+                          ? new Date(appointment.appointmentDate) 
+                          : null;
+                        const timeString = appointmentDate && !isNaN(appointmentDate.getTime())
+                          ? appointmentDate.toLocaleTimeString("tr-TR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "-";
                         
                         const getStatusBadge = (status: string) => {
                           switch (status) {
