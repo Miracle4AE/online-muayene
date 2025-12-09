@@ -268,8 +268,14 @@ export default function DoctorDashboardPage() {
       // State'i güncelle - array referansını değiştir
       const appointmentsArray = Array.isArray(data.appointments) ? data.appointments : [];
       console.error("📅 State'e atanacak array:", appointmentsArray.length, "randevu");
-      setTodayAppointments([...appointmentsArray]); // Yeni array referansı oluştur
-      console.error("✅ State güncellendi, randevu sayısı:", appointmentsArray.length);
+      console.error("📅 Array içeriği:", appointmentsArray);
+      
+      // Force re-render için yeni array oluştur
+      const newAppointments = appointmentsArray.map((apt: any) => ({ ...apt }));
+      setTodayAppointments(newAppointments);
+      
+      console.error("✅ State güncellendi, randevu sayısı:", newAppointments.length);
+      console.error("✅ State değeri:", todayAppointments.length, "->", newAppointments.length);
     } catch (err: any) {
       console.error("❌ HATA:", err);
       console.error("❌ Hata mesajı:", err.message);
@@ -1544,99 +1550,91 @@ export default function DoctorDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {!todayAppointments || todayAppointments.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="text-center py-4 text-gray-500">
-                            Randevu bulunamadı
-                          </td>
-                        </tr>
-                      ) : (
-                        todayAppointments.map((appointment, index) => {
-                          console.error(`🔄 Mapping randevu ${index + 1}/${todayAppointments.length}:`, appointment?.id);
-                          // Tarih parse kontrolü
-                          let timeString = "-";
-                          if (appointment?.appointmentDate) {
-                            try {
-                              const appointmentDate = new Date(appointment.appointmentDate);
-                              if (!isNaN(appointmentDate.getTime())) {
-                                timeString = appointmentDate.toLocaleTimeString("tr-TR", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                });
-                              }
-                            } catch (e) {
-                              console.error("❌ Tarih parse hatası:", e);
+                      {todayAppointments.map((appointment, index) => {
+                        console.error(`🔄 Mapping randevu ${index + 1}/${todayAppointments.length}:`, appointment?.id);
+                        // Tarih parse kontrolü
+                        let timeString = "-";
+                        if (appointment?.appointmentDate) {
+                          try {
+                            const appointmentDate = new Date(appointment.appointmentDate);
+                            if (!isNaN(appointmentDate.getTime())) {
+                              timeString = appointmentDate.toLocaleTimeString("tr-TR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
                             }
+                          } catch (e) {
+                            console.error("❌ Tarih parse hatası:", e);
                           }
-                          
-                          // Patient name kontrolü - daha güvenli
-                          let patientName = "Bilinmeyen Hasta";
-                          if (appointment?.patient) {
-                            if (typeof appointment.patient === 'object' && appointment.patient !== null) {
-                              patientName = appointment.patient.name || 
-                                           appointment.patient.email || 
-                                           "Bilinmeyen Hasta";
-                            } else if (typeof appointment.patient === 'string') {
-                              patientName = appointment.patient;
-                            }
+                        }
+                        
+                        // Patient name kontrolü - daha güvenli
+                        let patientName = "Bilinmeyen Hasta";
+                        if (appointment?.patient) {
+                          if (typeof appointment.patient === 'object' && appointment.patient !== null) {
+                            patientName = appointment.patient.name || 
+                                         appointment.patient.email || 
+                                         "Bilinmeyen Hasta";
+                          } else if (typeof appointment.patient === 'string') {
+                            patientName = appointment.patient;
                           }
-                          
-                          // Randevu tipini belirle (Online veya Yüz Yüze)
-                          const appointmentType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
-                          
-                          const getStatusBadge = (status: string) => {
-                            switch (status) {
-                              case "COMPLETED":
-                                return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Tamamlandı</span>;
-                              case "IN_PROGRESS":
-                                return <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Devam Ediyor</span>;
-                              case "CONFIRMED":
-                                return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">Bekliyor</span>;
-                              case "CANCELLED":
-                                return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">İptal Edildi</span>;
-                              default:
-                                return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{status || "PENDING"}</span>;
-                            }
-                          };
+                        }
+                        
+                        // Randevu tipini belirle (Online veya Yüz Yüze)
+                        const appointmentType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
+                        
+                        const getStatusBadge = (status: string) => {
+                          switch (status) {
+                            case "COMPLETED":
+                              return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Tamamlandı</span>;
+                            case "IN_PROGRESS":
+                              return <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Devam Ediyor</span>;
+                            case "CONFIRMED":
+                              return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">Bekliyor</span>;
+                            case "CANCELLED":
+                              return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">İptal Edildi</span>;
+                            default:
+                              return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{status || "PENDING"}</span>;
+                          }
+                        };
 
-                          const getActionButton = (status: string) => {
-                            switch (status) {
-                              case "COMPLETED":
-                                return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
-                              case "IN_PROGRESS":
-                                return <button className="text-blue-600 hover:text-blue-800 text-sm">Devam Et</button>;
-                              case "CONFIRMED":
-                                return <button className="text-blue-600 hover:text-blue-800 text-sm">Başlat</button>;
-                              default:
-                                return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
-                            }
-                          };
-                          
-                          // Debug: Render öncesi kontrol
-                          console.error("🎯 RENDER:", {
-                            id: appointment?.id,
-                            timeString,
-                            patientName,
-                            appointmentType,
-                            status: appointment?.status,
-                            hasAppointment: !!appointment,
-                            hasPatient: !!appointment?.patient,
-                          });
-                          
-                          // Final kontrol
-                          console.error(`✅ Render ediliyor: ${timeString} - ${patientName} - ${appointmentType}`);
-                          
-                          return (
-                            <tr key={appointment?.id || `appointment-${index}`} className="border-b hover:bg-gray-50">
-                              <td className="py-3 px-4 text-sm">{timeString || "-"}</td>
-                              <td className="py-3 px-4 text-sm font-medium">{patientName || "Bilinmeyen"}</td>
-                              <td className="py-3 px-4 text-sm">{appointmentType || "Yüz Yüze"}</td>
-                              <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
-                              <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING")}</td>
-                            </tr>
-                          );
-                        })
-                      )}
+                        const getActionButton = (status: string) => {
+                          switch (status) {
+                            case "COMPLETED":
+                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
+                            case "IN_PROGRESS":
+                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Devam Et</button>;
+                            case "CONFIRMED":
+                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Başlat</button>;
+                            default:
+                              return <button className="text-blue-600 hover:text-blue-800 text-sm">Detay</button>;
+                          }
+                        };
+                        
+                        // Debug: Render öncesi kontrol
+                        console.error("🎯 RENDER:", {
+                          id: appointment?.id,
+                          timeString,
+                          patientName,
+                          appointmentType,
+                          status: appointment?.status,
+                          hasAppointment: !!appointment,
+                          hasPatient: !!appointment?.patient,
+                        });
+                        
+                        // Final kontrol
+                        console.error(`✅ Render ediliyor: ${timeString} - ${patientName} - ${appointmentType}`);
+                        
+                        return (
+                          <tr key={appointment?.id || `appointment-${index}`} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4 text-sm">{timeString || "-"}</td>
+                            <td className="py-3 px-4 text-sm font-medium">{patientName || "Bilinmeyen"}</td>
+                            <td className="py-3 px-4 text-sm">{appointmentType || "Yüz Yüze"}</td>
+                            <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
+                            <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING")}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
