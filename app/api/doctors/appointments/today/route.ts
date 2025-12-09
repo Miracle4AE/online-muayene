@@ -107,14 +107,23 @@ export async function GET(request: NextRequest) {
     };
 
     // Randevuları formatla
+    console.log("📅 Toplam randevu sayısı (filtre öncesi):", appointments.length);
     const formattedAppointments = appointments
-      .filter((appointment) => appointment.patient) // Patient olmayan randevuları filtrele
+      .filter((appointment) => {
+        const hasPatient = !!appointment.patient;
+        if (!hasPatient) {
+          console.log("⚠️ Patient olmayan randevu filtrelendi:", appointment.id);
+        }
+        return hasPatient;
+      })
       .map((appointment) => {
         const age = calculateAge(appointment.patient?.patientProfile?.dateOfBirth);
         
-        return {
+        const formatted = {
           id: appointment.id,
-          appointmentDate: appointment.appointmentDate,
+          appointmentDate: appointment.appointmentDate instanceof Date 
+            ? appointment.appointmentDate.toISOString() 
+            : appointment.appointmentDate,
           status: appointment.status,
           notes: appointment.notes,
           meetingLink: appointment.meetingLink,
@@ -136,7 +145,18 @@ export async function GET(request: NextRequest) {
             emergencyPhone: appointment.patient?.patientProfile?.emergencyPhone,
           },
         };
+        
+        console.log("📅 Formatlanan randevu:", {
+          id: formatted.id,
+          appointmentDate: formatted.appointmentDate,
+          patientName: formatted.patient.name,
+          status: formatted.status,
+        });
+        
+        return formatted;
       });
+    
+    console.log("📅 Formatlanan randevu sayısı:", formattedAppointments.length);
 
     return NextResponse.json({
       appointments: formattedAppointments,

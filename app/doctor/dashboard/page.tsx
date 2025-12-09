@@ -238,6 +238,13 @@ export default function DoctorDashboardPage() {
       }
 
       const data = await response.json();
+      console.log("📅 API'den gelen randevular:", JSON.stringify(data.appointments, null, 2));
+      console.log("📅 Randevu sayısı:", data.appointments?.length || 0);
+      if (data.appointments && data.appointments.length > 0) {
+        console.log("📅 İlk randevu:", data.appointments[0]);
+        console.log("📅 İlk randevu patient:", data.appointments[0].patient);
+        console.log("📅 İlk randevu appointmentDate:", data.appointments[0].appointmentDate);
+      }
       setTodayAppointments(data.appointments || []);
       // Modal otomatik açılmasın, sadece kullanıcı "Tümünü Gör" butonuna tıkladığında açılsın
     } catch (err: any) {
@@ -1511,6 +1518,15 @@ export default function DoctorDashboardPage() {
                     </thead>
                     <tbody>
                       {todayAppointments.map((appointment) => {
+                        // Debug
+                        console.log("🔍 Render edilen randevu:", {
+                          id: appointment.id,
+                          appointmentDate: appointment.appointmentDate,
+                          patient: appointment.patient,
+                          patientName: appointment.patient?.name,
+                          status: appointment.status,
+                        });
+                        
                         // Tarih parse kontrolü
                         const appointmentDate = appointment.appointmentDate 
                           ? new Date(appointment.appointmentDate) 
@@ -1521,6 +1537,13 @@ export default function DoctorDashboardPage() {
                               minute: "2-digit",
                             })
                           : "-";
+                        
+                        console.log("🔍 Parse edilen tarih:", {
+                          original: appointment.appointmentDate,
+                          parsed: appointmentDate,
+                          isValid: appointmentDate && !isNaN(appointmentDate.getTime()),
+                          timeString: timeString,
+                        });
                         
                         const getStatusBadge = (status: string) => {
                           switch (status) {
