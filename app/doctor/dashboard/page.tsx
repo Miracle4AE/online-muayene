@@ -1529,34 +1529,19 @@ export default function DoctorDashboardPage() {
                 </button>
               </div>
               <div className="overflow-x-auto">
-                {(() => {
-                  console.error("🔍 RENDER CHECK:", {
-                    loading: loadingTodayAppointments,
-                    length: todayAppointments?.length || 0,
-                    appointments: todayAppointments
-                  });
-                  
-                  if (loadingTodayAppointments) {
-                    return (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      </div>
-                    );
-                  }
-                  
-                  if (!todayAppointments || todayAppointments.length === 0) {
-                    return (
-                      <div className="text-center py-8">
-                        <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <p className="text-gray-500 text-sm">Bugün için randevu bulunmuyor</p>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <table className="w-full">
+                {loadingTodayAppointments ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : !todayAppointments || todayAppointments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-gray-500 text-sm">Bugün için randevu bulunmuyor</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Saat</th>
@@ -1567,134 +1552,52 @@ export default function DoctorDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {todayAppointments.map((appointment, index) => {
-                        console.error(`🔄 Mapping randevu ${index + 1}/${todayAppointments.length}:`, appointment?.id);
-                        // Tarih parse kontrolü
-                        let timeString = "-";
-                        if (appointment?.appointmentDate) {
-                          try {
-                            const appointmentDate = new Date(appointment.appointmentDate);
-                            if (!isNaN(appointmentDate.getTime())) {
-                              timeString = appointmentDate.toLocaleTimeString("tr-TR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              });
-                            }
-                          } catch (e) {
-                            console.error("❌ Tarih parse hatası:", e);
-                          }
-                        }
-                        
-                        // Patient name kontrolü - daha güvenli
-                        let patientName = "Bilinmeyen Hasta";
-                        if (appointment?.patient) {
-                          if (typeof appointment.patient === 'object' && appointment.patient !== null) {
-                            patientName = appointment.patient.name || 
-                                         appointment.patient.email || 
-                                         "Bilinmeyen Hasta";
-                          } else if (typeof appointment.patient === 'string') {
-                            patientName = appointment.patient;
-                          }
-                        }
-                        
-                        // Randevu tipini belirle (Online veya Yüz Yüze)
-                        const appointmentType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
-                        
-                        const getStatusBadge = (status: string) => {
-                          switch (status) {
-                            case "COMPLETED":
-                              return <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Tamamlandı</span>;
-                            case "IN_PROGRESS":
-                              return <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Devam Ediyor</span>;
-                            case "CONFIRMED":
-                              return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">Bekliyor</span>;
-                            case "CANCELLED":
-                              return <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">İptal Edildi</span>;
-                            default:
-                              return <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{status || "PENDING"}</span>;
-                          }
-                        };
-
-                        const getActionButton = (status: string, appointmentId: string) => {
-                          const handleClick = (e: React.MouseEvent) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.error("🔘 Detay butonuna tıklandı:", appointmentId);
-                            const appointment = todayAppointments.find(apt => apt?.id === appointmentId);
-                            if (appointment) {
-                              setSelectedAppointment(appointment);
-                              setShowAppointmentModal(true);
-                            }
-                          };
-                          
-                          switch (status) {
-                            case "COMPLETED":
-                              return (
-                                <button 
-                                  onClick={handleClick}
-                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
-                                >
-                                  Detay
-                                </button>
-                              );
-                            case "IN_PROGRESS":
-                              return (
-                                <button 
-                                  onClick={handleClick}
-                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
-                                >
-                                  Devam Et
-                                </button>
-                              );
-                            case "CONFIRMED":
-                              return (
-                                <button 
-                                  onClick={handleClick}
-                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
-                                >
-                                  Başlat
-                                </button>
-                              );
-                            default:
-                              return (
-                                <button 
-                                  onClick={handleClick}
-                                  className="text-blue-600 hover:text-blue-800 text-sm cursor-pointer"
-                                >
-                                  Detay
-                                </button>
-                              );
-                          }
-                        };
-                        
-                        // Debug: Render öncesi kontrol
-                        console.error("🎯 RENDER:", {
-                          id: appointment?.id,
-                          timeString,
-                          patientName,
-                          appointmentType,
-                          status: appointment?.status,
-                          hasAppointment: !!appointment,
-                          hasPatient: !!appointment?.patient,
-                        });
-                        
-                        // Final kontrol
-                        console.error(`✅ Render ediliyor: ${timeString} - ${patientName} - ${appointmentType}`);
+                      {todayAppointments.map((appointment: any, index: number) => {
+                        const appointmentDate = appointment?.appointmentDate ? new Date(appointment.appointmentDate) : null;
+                        const timeStr = appointmentDate && !isNaN(appointmentDate.getTime()) 
+                          ? appointmentDate.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+                          : "-";
+                        const patientName = appointment?.patient?.name || appointment?.patient?.email || "Bilinmeyen Hasta";
+                        const aptType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
+                        const status = appointment?.status || "PENDING";
                         
                         return (
-                          <tr key={appointment?.id || `appointment-${index}`} className="border-b hover:bg-gray-50">
-                            <td className="py-3 px-4 text-sm">{timeString || "-"}</td>
-                            <td className="py-3 px-4 text-sm font-medium">{patientName || "Bilinmeyen"}</td>
-                            <td className="py-3 px-4 text-sm">{appointmentType || "Yüz Yüze"}</td>
-                            <td className="py-3 px-4">{getStatusBadge(appointment?.status || "PENDING")}</td>
-                            <td className="py-3 px-4">{getActionButton(appointment?.status || "PENDING", appointment?.id || "")}</td>
+                          <tr key={appointment?.id || `apt-${index}`} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4 text-sm text-gray-900">{timeStr}</td>
+                            <td className="py-3 px-4 text-sm font-medium text-gray-900">{patientName}</td>
+                            <td className="py-3 px-4 text-sm text-gray-900">{aptType}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 text-xs rounded ${
+                                status === "COMPLETED" ? "bg-green-100 text-green-700" :
+                                status === "IN_PROGRESS" ? "bg-blue-100 text-blue-700" :
+                                status === "CONFIRMED" ? "bg-yellow-100 text-yellow-700" :
+                                status === "CANCELLED" ? "bg-red-100 text-red-700" :
+                                "bg-gray-100 text-gray-700"
+                              }`}>
+                                {status === "COMPLETED" ? "Tamamlandı" :
+                                 status === "IN_PROGRESS" ? "Devam Ediyor" :
+                                 status === "CONFIRMED" ? "Onaylandı" :
+                                 status === "CANCELLED" ? "İptal" :
+                                 status === "PENDING" ? "Bekliyor" : status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <button 
+                                onClick={() => {
+                                  setSelectedAppointment(appointment);
+                                  setShowAppointmentModal(true);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              >
+                                Detay
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
                     </tbody>
                   </table>
-                  );
-                })()}
+                )}
               </div>
             </div>
           </div>
