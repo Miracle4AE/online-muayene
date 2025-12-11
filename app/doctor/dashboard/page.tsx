@@ -2425,7 +2425,8 @@ export default function DoctorDashboardPage() {
                 <button
                   onClick={() => {
                     setShowTodayAppointments(false);
-                    setTodayAppointments([]);
+                    // Modal kapatıldığında ana sayfada görünmesi için tekrar fetch yap
+                    fetchTodayAppointments();
                   }}
                   className="text-white hover:text-blue-200 transition-colors"
                 >
