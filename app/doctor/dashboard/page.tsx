@@ -96,6 +96,8 @@ export default function DoctorDashboardPage() {
   const [processingReport, setProcessingReport] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [appointmentDocuments, setAppointmentDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedReportForReject, setSelectedReportForReject] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -286,6 +288,33 @@ export default function DoctorDashboardPage() {
     } finally {
       setLoadingTodayAppointments(false);
       console.error("🏁 fetchTodayAppointments tamamlandı");
+    }
+  };
+
+  const fetchAppointmentDocuments = async (appointmentId: string) => {
+    try {
+      if (!session?.user?.id || !appointmentId) return;
+      
+      setLoadingDocuments(true);
+      const response = await fetch(`/api/doctors/appointments/${appointmentId}/reports`, {
+        headers: {
+          "x-user-id": session.user.id,
+          "x-user-role": session.user.role,
+        },
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Belgeler alınamadı");
+      }
+
+      const data = await response.json();
+      setAppointmentDocuments(data.patientDocuments || []);
+    } catch (err: any) {
+      console.error("Error fetching appointment documents:", err);
+      setAppointmentDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
     }
   };
 
@@ -1586,6 +1615,9 @@ export default function DoctorDashboardPage() {
                                 onClick={() => {
                                   setSelectedAppointment(appointment);
                                   setShowAppointmentModal(true);
+                                  if (appointment?.id) {
+                                    fetchAppointmentDocuments(appointment.id);
+                                  }
                                 }}
                                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                               >
@@ -4008,7 +4040,7 @@ export default function DoctorDashboardPage() {
       {/* Appointment Detail Modal */}
       {showAppointmentModal && selectedAppointment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-gray-900">Randevu Detayları</h2>
@@ -4016,6 +4048,7 @@ export default function DoctorDashboardPage() {
                   onClick={() => {
                     setShowAppointmentModal(false);
                     setSelectedAppointment(null);
+                    setAppointmentDocuments([]);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -4089,6 +4122,98 @@ export default function DoctorDashboardPage() {
                     <p className="text-gray-900">{selectedAppointment.notes}</p>
                   </div>
                 )}
+
+                {/* Hasta Belgeleri */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">Hasta Belgeleri</h3>
+                  {loadingDocuments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : appointmentDocuments.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Bu randevu için yüklenmiş belge bulunmuyor</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {appointmentDocuments.map((doc: any) => {
+                        const fileExtension = doc.fileUrl?.split('.').pop()?.toLowerCase() || '';
+                        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExtension);
+                        const isPdf = fileExtension === 'pdf';
+                        
+                        return (
+                          <div key={doc.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900">{doc.title || doc.documentType || "Belge"}</h4>
+                                {doc.description && (
+                                  <p className="text-sm text-gray-600 mt-1">{doc.description}</p>
+                                )}
+                                {doc.documentDate && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {new Date(doc.documentDate).toLocaleDateString("tr-TR")}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="mt-3">
+                              {isImage ? (
+                                <div className="relative">
+                                  <img 
+                                    src={doc.fileUrl} 
+                                    alt={doc.title || "Belge"} 
+                                    className="w-full h-48 object-cover rounded border"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                                    }}
+                                  />
+                                  <a
+                                    href={doc.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="absolute top-2 right-2 bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                                  >
+                                    Aç
+                                  </a>
+                                </div>
+                              ) : isPdf ? (
+                                <div className="border rounded p-4 bg-gray-50">
+                                  <div className="flex items-center gap-3">
+                                    <svg className="w-12 h-12 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                                    </svg>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-gray-900">PDF Belgesi</p>
+                                      <a
+                                        href={doc.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
+                                      >
+                                        PDF'i Görüntüle →
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  Dosyayı İndir
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="mt-6 flex gap-3">
