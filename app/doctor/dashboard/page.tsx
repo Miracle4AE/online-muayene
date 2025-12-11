@@ -893,7 +893,33 @@ export default function DoctorDashboardPage() {
       const data = await response.json();
       console.error("✅ Online görüşme randevuları:", data.appointments?.length || 0, "randevu");
       console.error("📋 Randevular:", JSON.stringify(data.appointments, null, 2));
-      setAvailableMeetings(data.appointments || []);
+      
+      // Frontend'de de filtreleme yap: COMPLETED ve CANCELLED randevuları filtrele
+      // Ayrıca geçmiş tarihli randevuları da filtrele
+      const now = new Date();
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      
+      const filteredAppointments = (data.appointments || []).filter((apt: any) => {
+        // COMPLETED ve CANCELLED randevuları filtrele
+        if (apt.status === "COMPLETED" || apt.status === "CANCELLED") {
+          return false;
+        }
+        
+        // Geçmiş tarihli randevuları filtrele (bugünden önceki randevular)
+        if (apt.appointmentDate) {
+          const aptDate = new Date(apt.appointmentDate);
+          aptDate.setHours(0, 0, 0, 0);
+          if (aptDate < today) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      console.error("📋 Filtrelenmiş randevular:", filteredAppointments.length, "randevu");
+      setAvailableMeetings(filteredAppointments);
     } catch (err: any) {
       console.error("❌ Hata:", err);
       setError(err.message || "Randevular alınırken bir hata oluştu");
@@ -4009,7 +4035,9 @@ export default function DoctorDashboardPage() {
                                 )}
                               </div>
                               <div className="text-right">
-                                {canStart ? (
+                                {appointment.status === "COMPLETED" ? (
+                                  <span className="inline-block bg-gray-500 text-white text-xs px-2 py-1 rounded mb-2">Tamamlandı</span>
+                                ) : canStart ? (
                                   <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded mb-2">Başlatılabilir</span>
                                 ) : (
                                   <span className="inline-block bg-yellow-500 text-white text-xs px-2 py-1 rounded mb-2">

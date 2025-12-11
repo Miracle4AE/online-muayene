@@ -53,20 +53,21 @@ export async function GET(request: NextRequest) {
 
     const now = new Date();
     
-    // Tüm PENDING ve CONFIRMED randevuları getir (sadece çok eski olanları filtrele)
-    // 7 günden eski randevuları gösterme (tamamen geçmiş randevular)
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Sadece bugün ve gelecekteki aktif randevuları getir
+    // COMPLETED ve CANCELLED randevuları filtrele
+    // Geçmiş tarihli randevuları filtrele (bugünden önceki randevular)
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
 
     const appointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorId,
         status: {
-          in: ["CONFIRMED", "PENDING"], // PENDING randevuları da dahil et
+          in: ["CONFIRMED", "PENDING"], // Sadece aktif randevular
         },
-        // Sadece son 7 gün içindeki veya gelecekteki randevuları göster
+        // Sadece bugün ve gelecekteki randevuları göster
         appointmentDate: {
-          gte: sevenDaysAgo,
+          gte: today,
         },
       },
       include: {
