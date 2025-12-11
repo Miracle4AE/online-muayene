@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Bugünün başlangıcı ve sonu (local timezone kullan - randevu oluşturulurken de local timezone kullanılıyor)
+    // Bugünün başlangıcı (available-for-meeting API'si ile aynı mantık)
     const now = new Date();
     const today = new Date(now);
     today.setHours(0, 0, 0, 0); // Local timezone'da bugünün başlangıcı
@@ -62,19 +62,19 @@ export async function GET(request: NextRequest) {
     console.error("📅 API - Bugünün sonu (Local):", tomorrow.toISOString());
     console.error("📅 API - Şu anki zaman:", now.toISOString());
 
-    // Bugünkü randevuları getir (sadece bugün içinde ve henüz geçmemiş olanlar)
-    // Not: COMPLETED ve CANCELLED randevuları hariç tut, sadece aktif randevuları göster
+    // Bugünkü randevuları getir (sadece bugün içindeki randevular)
+    // COMPLETED ve CANCELLED randevuları filtrele, sadece aktif randevuları göster
+    // available-for-meeting API'si ile aynı mantık: sadece bugün ve gelecekteki randevular
     const appointments = await prisma.appointment.findMany({
       where: {
         doctorId: doctorId,
+        status: {
+          in: ["CONFIRMED", "PENDING"], // Sadece aktif randevular (available-for-meeting ile aynı)
+        },
+        // Sadece bugünkü randevuları göster (yarın dahil değil)
         appointmentDate: {
           gte: today,
           lt: tomorrow,
-        },
-        // Sadece aktif randevuları göster (geçmiş saatlerdeki randevular da bugün içindeyse gösterilebilir)
-        // Ama COMPLETED ve CANCELLED olanları filtrele
-        status: {
-          notIn: ["COMPLETED", "CANCELLED"],
         },
       },
       include: {
