@@ -1127,6 +1127,9 @@ export default function DoctorDashboardPage() {
       // İstatistikleri yenile
       fetchStats();
       
+      // Bugünkü randevuları yenile (yeni oluşturulan randevu görünsün)
+      fetchTodayAppointments();
+      
       // Eğer online görüşme modalı açıksa, listeyi yenile
       if (showOnlineMeetingModal) {
         fetchAvailableMeetings();
