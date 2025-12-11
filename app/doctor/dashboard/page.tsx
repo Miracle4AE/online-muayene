@@ -272,11 +272,24 @@ export default function DoctorDashboardPage() {
       // State'i güncelle - array referansını değiştir
       const appointmentsArray = Array.isArray(data.appointments) ? data.appointments : [];
       
+      // Ek güvenlik: sadece bugünkü randevuları tut (gün eşleşmesi)
+      const todayLocal = new Date();
+      const filteredAppointments = appointmentsArray.filter((apt: any) => {
+        if (!apt?.appointmentDate) return false;
+        const aptDate = new Date(apt.appointmentDate);
+        return (
+          aptDate.getFullYear() === todayLocal.getFullYear() &&
+          aptDate.getMonth() === todayLocal.getMonth() &&
+          aptDate.getDate() === todayLocal.getDate()
+        );
+      });
+      
       console.error("📅 API'den gelen randevu sayısı:", appointmentsArray.length);
-      console.error("📅 State'e atanacak array:", appointmentsArray.length, "randevu");
+      console.error("📅 Bugünle eşleşen randevu sayısı:", filteredAppointments.length);
+      console.error("📅 State'e atanacak array:", filteredAppointments.length, "randevu");
       
       // Force re-render için yeni array oluştur
-      const newAppointments = appointmentsArray.map((apt: any) => ({ ...apt }));
+      const newAppointments = filteredAppointments.map((apt: any) => ({ ...apt }));
       setTodayAppointments(newAppointments);
       
       console.error("✅ State güncellendi, randevu sayısı:", newAppointments.length);
