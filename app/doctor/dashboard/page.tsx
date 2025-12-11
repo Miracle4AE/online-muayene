@@ -859,6 +859,7 @@ export default function DoctorDashboardPage() {
 
     setLoadingMeetings(true);
     try {
+      console.error("🔄 Online görüşme randevuları çekiliyor...");
       const response = await fetch("/api/doctors/appointments/available-for-meeting", {
         headers: {
           "x-user-id": session.user.id,
@@ -868,12 +869,17 @@ export default function DoctorDashboardPage() {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ API Hatası:", response.status, errorText);
         throw new Error("Randevular alınamadı");
       }
 
       const data = await response.json();
+      console.error("✅ Online görüşme randevuları:", data.appointments?.length || 0, "randevu");
+      console.error("📋 Randevular:", JSON.stringify(data.appointments, null, 2));
       setAvailableMeetings(data.appointments || []);
     } catch (err: any) {
+      console.error("❌ Hata:", err);
       setError(err.message || "Randevular alınırken bir hata oluştu");
       setAvailableMeetings([]);
     } finally {

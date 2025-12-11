@@ -124,61 +124,67 @@ export async function GET(request: NextRequest) {
     });
 
     // Randevuları filtrele ve formatla
-    const availableAppointments = appointments.map((apt) => {
-      const appointmentTime = new Date(apt.appointmentDate);
-      const appointmentEndTime = new Date(appointmentTime);
-      appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + 15); // 15 dakika görüşme
+    const availableAppointments = appointments
+      .filter((apt) => apt.patient !== null) // Null patient'ları filtrele
+      .map((apt) => {
+        const appointmentTime = new Date(apt.appointmentDate);
+        const appointmentEndTime = new Date(appointmentTime);
+        appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + 15); // 15 dakika görüşme
 
-      // Son görüşme varsa, 5 dakika boşluk ekle
-      const lastRecording = apt.videoRecordings[0];
-      let availableFrom = appointmentTime;
-      
-      if (lastRecording) {
-        const lastRecordingEnd = new Date(lastRecording.recordingDate);
-        lastRecordingEnd.setSeconds(lastRecordingEnd.getSeconds() + (lastRecording.duration || 0));
-        const breakTime = new Date(lastRecordingEnd);
-        breakTime.setMinutes(breakTime.getMinutes() + 5); // 5 dakika boşluk
+        // Son görüşme varsa, 5 dakika boşluk ekle
+        const lastRecording = apt.videoRecordings[0];
+        let availableFrom = appointmentTime;
         
-        if (breakTime > availableFrom) {
-          availableFrom = breakTime;
+        if (lastRecording) {
+          const lastRecordingEnd = new Date(lastRecording.recordingDate);
+          lastRecordingEnd.setSeconds(lastRecordingEnd.getSeconds() + (lastRecording.duration || 0));
+          const breakTime = new Date(lastRecordingEnd);
+          breakTime.setMinutes(breakTime.getMinutes() + 5); // 5 dakika boşluk
+          
+          if (breakTime > availableFrom) {
+            availableFrom = breakTime;
+          }
         }
-      }
 
-      // Yaş hesapla
-      let age = null;
-      if (apt.patient.patientProfile?.dateOfBirth) {
-        const birthDate = new Date(apt.patient.patientProfile.dateOfBirth);
-        age = now.getFullYear() - birthDate.getFullYear();
-        const monthDiff = now.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
-          age--;
+        // Yaş hesapla
+        let age = null;
+        if (apt.patient?.patientProfile?.dateOfBirth) {
+          const birthDate = new Date(apt.patient.patientProfile.dateOfBirth);
+          age = now.getFullYear() - birthDate.getFullYear();
+          const monthDiff = now.getMonth() - birthDate.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+            age--;
+          }
         }
-      }
 
-      return {
-        id: apt.id,
-        appointmentDate: apt.appointmentDate,
-        appointmentEndTime: appointmentEndTime.toISOString(),
-        availableFrom: availableFrom.toISOString(),
-        status: apt.status,
-        notes: apt.notes,
-        patient: {
-          id: apt.patient.id,
-          name: apt.patient.name,
-          email: apt.patient.email,
-          phone: apt.patient.phone,
-          age,
-          tcKimlikNo: apt.patient.patientProfile?.tcKimlikNo,
-          gender: apt.patient.patientProfile?.gender,
-          bloodType: apt.patient.patientProfile?.bloodType,
-          allergies: apt.patient.patientProfile?.allergies,
-          chronicDiseases: apt.patient.patientProfile?.chronicDiseases,
-          medications: apt.patient.patientProfile?.medications,
-        },
-        canStartNow: availableFrom <= now && now < appointmentEndTime,
-        timeUntilStart: availableFrom > now ? Math.max(0, Math.floor((availableFrom.getTime() - now.getTime()) / 1000 / 60)) : 0, // dakika
-      };
-    });
+        // Randevu saati gelmişse başlatılabilir (15 dakika tolerans ile)
+        const canStartNow = appointmentTime <= new Date(now.getTime() + 15 * 60 * 1000) && now < appointmentEndTime;
+
+        return {
+          id: apt.id,
+          appointmentDate: apt.appointmentDate,
+          appointmentEndTime: appointmentEndTime.toISOString(),
+          availableFrom: availableFrom.toISOString(),
+          status: apt.status,
+          notes: apt.notes,
+          meetingLink: apt.meetingLink,
+          patient: {
+            id: apt.patient?.id || "",
+            name: apt.patient?.name || apt.patient?.email || "Bilinmeyen Hasta",
+            email: apt.patient?.email || "",
+            phone: apt.patient?.phone || "",
+            age,
+            tcKimlikNo: apt.patient?.patientProfile?.tcKimlikNo,
+            gender: apt.patient?.patientProfile?.gender,
+            bloodType: apt.patient?.patientProfile?.bloodType,
+            allergies: apt.patient?.patientProfile?.allergies,
+            chronicDiseases: apt.patient?.patientProfile?.chronicDiseases,
+            medications: apt.patient?.patientProfile?.medications,
+          },
+          canStartNow,
+          timeUntilStart: appointmentTime > now ? Math.max(0, Math.floor((appointmentTime.getTime() - now.getTime()) / 1000 / 60)) : 0, // dakika
+        };
+      });
 
     return NextResponse.json({
       appointments: availableAppointments,
