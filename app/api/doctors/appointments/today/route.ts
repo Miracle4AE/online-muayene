@@ -51,12 +51,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Bugünün başlangıcı ve sonu
+    // Bugünün başlangıcı ve sonu (UTC timezone kullan)
     const now = new Date();
     const today = new Date(now);
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    console.error("📅 API - Bugünün başlangıcı (UTC):", today.toISOString());
+    console.error("📅 API - Bugünün sonu (UTC):", tomorrow.toISOString());
+    console.error("📅 API - Şu anki zaman (UTC):", now.toISOString());
 
     // Bugünkü randevuları getir (sadece bugün içinde ve henüz geçmemiş olanlar)
     // Not: COMPLETED ve CANCELLED randevuları hariç tut, sadece aktif randevuları göster
@@ -115,6 +119,10 @@ export async function GET(request: NextRequest) {
 
     // Randevuları formatla
     console.error("📅 Toplam randevu sayısı:", appointments.length);
+    if (appointments.length > 0) {
+      console.error("📅 İlk randevu tarihi:", appointments[0].appointmentDate);
+      console.error("📅 İlk randevu status:", appointments[0].status);
+    }
     const formattedAppointments = appointments.map((appointment) => {
         // Patient null kontrolü
         if (!appointment.patient) {
