@@ -51,16 +51,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Bugünün başlangıcı ve sonu (UTC timezone kullan)
+    // Bugünün başlangıcı ve sonu (local timezone kullan - randevu oluşturulurken de local timezone kullanılıyor)
     const now = new Date();
     const today = new Date(now);
-    today.setUTCHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0); // Local timezone'da bugünün başlangıcı
     const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setDate(tomorrow.getDate() + 1); // Local timezone'da yarının başlangıcı
 
-    console.error("📅 API - Bugünün başlangıcı (UTC):", today.toISOString());
-    console.error("📅 API - Bugünün sonu (UTC):", tomorrow.toISOString());
-    console.error("📅 API - Şu anki zaman (UTC):", now.toISOString());
+    console.error("📅 API - Bugünün başlangıcı (Local):", today.toISOString());
+    console.error("📅 API - Bugünün sonu (Local):", tomorrow.toISOString());
+    console.error("📅 API - Şu anki zaman:", now.toISOString());
 
     // Bugünkü randevuları getir (sadece bugün içinde ve henüz geçmemiş olanlar)
     // Not: COMPLETED ve CANCELLED randevuları hariç tut, sadece aktif randevuları göster
