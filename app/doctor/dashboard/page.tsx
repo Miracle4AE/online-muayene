@@ -4039,92 +4039,211 @@ export default function DoctorDashboardPage() {
 
       {/* Appointment Detail Modal */}
       {showAppointmentModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">Randevu Detayları</h2>
-                <button
-                  onClick={() => {
-                    setShowAppointmentModal(false);
-                    setSelectedAppointment(null);
-                    setAppointmentDocuments([]);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Hasta Bilgileri</h3>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {selectedAppointment?.patient?.name || selectedAppointment?.patient?.email || "Bilinmeyen Hasta"}
-                  </p>
-                  {selectedAppointment?.patient?.email && (
-                    <p className="text-sm text-gray-600">{selectedAppointment.patient.email}</p>
-                  )}
-                  {selectedAppointment?.patient?.phone && (
-                    <p className="text-sm text-gray-600">{selectedAppointment.patient.phone}</p>
-                  )}
+              {/* Header with Time and Status */}
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    {selectedAppointment?.appointmentDate && (
+                      <>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {new Date(selectedAppointment.appointmentDate).toLocaleTimeString("tr-TR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(selectedAppointment.appointmentDate).toLocaleDateString("tr-TR", {
+                            day: "numeric",
+                            month: "long",
+                          })}
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Randevu Tarihi ve Saati</h3>
-                  <p className="text-lg text-gray-900">
-                    {selectedAppointment?.appointmentDate
-                      ? new Date(selectedAppointment.appointmentDate).toLocaleString("tr-TR", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "-"}
-                  </p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Randevu Tipi</h3>
-                  <p className="text-lg text-gray-900">
-                    {selectedAppointment?.meetingLink ? "Online" : "Yüz Yüze"}
-                  </p>
-                  {selectedAppointment?.meetingLink && (
-                    <a
-                      href={selectedAppointment.meetingLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
-                    >
-                      Görüşme Linki →
-                    </a>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500">Durum</h3>
-                  <p className="text-lg text-gray-900">
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedAppointment?.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
+                    selectedAppointment?.status === "CONFIRMED" ? "bg-green-100 text-green-800" :
+                    selectedAppointment?.status === "IN_PROGRESS" ? "bg-blue-100 text-blue-800" :
+                    selectedAppointment?.status === "COMPLETED" ? "bg-gray-100 text-gray-800" :
+                    selectedAppointment?.status === "CANCELLED" ? "bg-red-100 text-red-800" :
+                    "bg-gray-100 text-gray-800"
+                  }`}>
                     {selectedAppointment?.status === "PENDING" && "Bekliyor"}
                     {selectedAppointment?.status === "CONFIRMED" && "Onaylandı"}
                     {selectedAppointment?.status === "IN_PROGRESS" && "Devam Ediyor"}
                     {selectedAppointment?.status === "COMPLETED" && "Tamamlandı"}
                     {selectedAppointment?.status === "CANCELLED" && "İptal Edildi"}
                     {!selectedAppointment?.status && "Bilinmeyen"}
-                  </p>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setShowAppointmentModal(false);
+                      setSelectedAppointment(null);
+                      setAppointmentDocuments([]);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
-                
-                {selectedAppointment?.notes && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Notlar</h3>
-                    <p className="text-gray-900">{selectedAppointment.notes}</p>
-                  </div>
-                )}
+              </div>
 
-                {/* Hasta Belgeleri */}
-                <div className="border-t pt-4 mt-4">
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Left Column: Hasta Bilgileri */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Hasta Bilgileri</h3>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Ad Soyad</p>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {selectedAppointment?.patient?.name || "Bilinmeyen Hasta"}
+                      </p>
+                    </div>
+
+                    {selectedAppointment?.patient?.age && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Yaş</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.age} yaşında</p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.tcKimlikNo && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">T.C. Kimlik No</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.tcKimlikNo}</p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.dateOfBirth && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Doğum Tarihi</p>
+                        <p className="text-sm text-gray-900">
+                          {new Date(selectedAppointment.patient.dateOfBirth).toLocaleDateString("tr-TR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.gender && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Cinsiyet</p>
+                        <p className="text-sm text-gray-900">
+                          {selectedAppointment.patient.gender === "Erkek" ? "Erkek" :
+                           selectedAppointment.patient.gender === "Kadın" ? "Kadın" :
+                           "Belirtilmemiş"}
+                        </p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.bloodType && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Kan Grubu</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.bloodType}</p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.phone && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Telefon</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.phone}</p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.email && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Email</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.email}</p>
+                      </div>
+                    )}
+
+                    {selectedAppointment?.patient?.address && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Adres</p>
+                        <p className="text-sm text-gray-900">{selectedAppointment.patient.address}</p>
+                      </div>
+                    )}
+
+                    {/* Acil Durum İletişim */}
+                    {(selectedAppointment?.patient?.emergencyContact || selectedAppointment?.patient?.emergencyPhone) && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Acil Durum İletişim</p>
+                        {selectedAppointment?.patient?.emergencyContact && (
+                          <p className="text-sm text-gray-900 mb-1">
+                            {selectedAppointment.patient.emergencyContact}
+                          </p>
+                        )}
+                        {selectedAppointment?.patient?.emergencyPhone && (
+                          <p className="text-xs text-gray-600">
+                            Tel: {selectedAppointment.patient.emergencyPhone}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Tıbbi Bilgiler */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Tıbbi Bilgiler</h3>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Alerjiler</p>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-900">
+                          {selectedAppointment?.patient?.allergies || "Yok"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Kronik Rahatsızlıklar</p>
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-900">
+                          {selectedAppointment?.patient?.chronicDiseases || "Yok"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Kullanılan İlaçlar</p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-sm text-gray-900">
+                          {selectedAppointment?.patient?.medications || "Yok"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Randevu Notları */}
+              {selectedAppointment?.notes && (
+                <div className="mb-6 border-t pt-4">
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Randevu Notları</h3>
+                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedAppointment.notes}</p>
+                </div>
+              )}
+
+              {/* Hasta Belgeleri */}
+              <div className="border-t pt-4 mt-4">
                   <h3 className="text-sm font-medium text-gray-500 mb-3">Hasta Belgeleri</h3>
                   {loadingDocuments ? (
                     <div className="flex items-center justify-center py-8">
@@ -4213,10 +4332,10 @@ export default function DoctorDashboardPage() {
                       })}
                     </div>
                   )}
-                </div>
               </div>
               
-              <div className="mt-6 flex gap-3">
+              {/* Action Buttons */}
+              <div className="mt-6 pt-4 border-t flex gap-3">
                 {selectedAppointment?.meetingLink && (
                   <a
                     href={selectedAppointment.meetingLink}
@@ -4231,6 +4350,7 @@ export default function DoctorDashboardPage() {
                   onClick={() => {
                     setShowAppointmentModal(false);
                     setSelectedAppointment(null);
+                    setAppointmentDocuments([]);
                   }}
                   className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >
