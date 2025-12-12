@@ -148,6 +148,7 @@ export default function DoctorDashboardPage() {
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [showActivitiesModal, setShowActivitiesModal] = useState(false);
   const [followedPatients, setFollowedPatients] = useState<any[]>([]);
   const [loadingFollowedPatients, setLoadingFollowedPatients] = useState(false);
   const [isFollowingPatient, setIsFollowingPatient] = useState<{ [key: string]: boolean }>({});
@@ -1287,6 +1288,65 @@ export default function DoctorDashboardPage() {
           </div>
         )}
 
+        {/* Son Aktiviteler Modal */}
+        {showActivitiesModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto">
+              <div className="flex justify-between items-center px-6 py-4 border-b">
+                <h3 className="text-xl font-bold text-gray-900">Tüm Aktiviteler</h3>
+                <button
+                  onClick={() => setShowActivitiesModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {activities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-gray-500 text-sm">Henüz aktivite bulunmuyor</p>
+                  </div>
+                ) : (
+                  activities.map((activity, index) => {
+                    const getColorClass = (color: string) => {
+                      switch (color) {
+                        case "blue":
+                          return "bg-blue-500";
+                        case "green":
+                          return "bg-green-500";
+                        case "purple":
+                          return "bg-purple-500";
+                        case "orange":
+                          return "bg-orange-500";
+                        case "yellow":
+                          return "bg-yellow-500";
+                        default:
+                          return "bg-gray-500";
+                      }
+                    };
+
+                    return (
+                      <div key={index} className="flex items-start gap-3 border-b pb-3 last:border-b-0">
+                        <div className={`w-2 h-2 ${getColorClass(activity.color)} rounded-full mt-2`}></div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900">{activity.message}</p>
+                          <p className="text-xs text-gray-500">{activity.timeAgo}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {verificationStatus === "REJECTED" && (
           <div className="bg-red-50 border-l-4 border-red-500 text-red-700 px-6 py-4 rounded-lg mb-6 flex items-center gap-4">
             <svg className="w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -1547,7 +1607,18 @@ export default function DoctorDashboardPage() {
 
               {/* Son Aktiviteler */}
               <div className="bg-white rounded-lg shadow-lg p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Son Aktiviteler</h3>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Son Aktiviteler</h3>
+                  <button
+                    onClick={() => {
+                      fetchActivities();
+                      setShowActivitiesModal(true);
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Tümünü Gör →
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {loadingActivities ? (
                     <div className="flex items-center justify-center py-8">
