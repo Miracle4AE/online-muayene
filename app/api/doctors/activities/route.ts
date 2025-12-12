@@ -47,11 +47,13 @@ export async function GET(request: NextRequest) {
     const activities: any[] = [];
 
     try {
-      // 1. Tamamlanan randevular
-      const completedAppointments = await prisma.appointment.findMany({
+      // 1. Son randevu hareketleri (PENDING, CONFIRMED, COMPLETED)
+      const recentAppointments = await prisma.appointment.findMany({
         where: {
           doctorId: doctorId,
-          status: "COMPLETED",
+          status: {
+            in: ["PENDING", "CONFIRMED", "COMPLETED"],
+          },
         },
         include: {
           patient: {
@@ -66,15 +68,36 @@ export async function GET(request: NextRequest) {
         take: 10,
       });
 
-      completedAppointments.forEach((appointment) => {
+      recentAppointments.forEach((appointment) => {
         if (appointment.patient?.name) {
-          activities.push({
-            type: "APPOINTMENT_COMPLETED",
-            message: `${appointment.patient.name} ile randevu tamamlandı`,
-            timestamp: appointment.updatedAt,
-            color: "blue",
-            icon: "calendar",
-          });
+          let message = `${appointment.patient.name} ile randevu`;
+          let color = "blue";
+          let icon = "calendar";
+
+          switch (appointment.status) {
+            case "COMPLETED":
+              message = `${appointment.patient.name} ile randevu tamamlandı`;
+              color = "blue";
+              break;
+            case "CONFIRMED":
+              message = `${appointment.patient.name} randevusu onaylandı`;
+              color = "green";
+              break;
+            case "PENDING":
+              message = `${appointment.patient.name} yeni randevu bekliyor`;
+              color = "yellow";
+              break;
+            default:
+              break;
+          }
+
+        activities.push({
+          type: "APPOINTMENT_ACTIVITY",
+          message,
+          timestamp: appointment.updatedAt,
+          color,
+          icon,
+        });
         }
       });
     } catch (err) {
