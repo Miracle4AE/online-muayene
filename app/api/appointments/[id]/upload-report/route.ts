@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
 import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt";
 
@@ -105,24 +102,12 @@ export async function POST(
       );
     }
 
-    // Dosyayı kaydet
+    // Dosyayı kaydet (veritabanına base64 data URL olarak). Not: Bu çözüm,
+    // Vercel gibi read-only ortamlarda dosya sistemi yazma hatalarını engeller.
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const fileName = `${timestamp}-${random}-${originalName}`;
-
-    const documentsDir = join(process.cwd(), "public", "documents");
-    if (!existsSync(documentsDir)) {
-      mkdirSync(documentsDir, { recursive: true });
-    }
-
-    const filePath = join(documentsDir, fileName);
-    await writeFile(filePath, buffer);
-
-    const fileUrl = `/documents/${fileName}`;
+    const base64 = buffer.toString("base64");
+    const fileUrl = `data:${file.type};base64,${base64}`;
 
     // Belgeyi veritabanına kaydet
     const document = await prisma.patientDocument.create({
