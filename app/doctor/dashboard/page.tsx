@@ -1947,7 +1947,7 @@ export default function DoctorDashboardPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4">
-                              <div className="flex gap-2 flex-wrap">
+                              <div className="flex gap-3 flex-wrap items-center">
                                 <button 
                                   onClick={() => {
                                     setSelectedAppointment(appointment);
@@ -2050,7 +2050,7 @@ export default function DoctorDashboardPage() {
                           <td className="py-3 px-4 text-sm text-gray-900">{aptType}</td>
                           <td className="py-3 px-4 text-sm text-gray-900">{statusBadge}</td>
                           <td className="py-3 px-4 text-sm text-gray-900">
-                            <div className="flex gap-2 flex-wrap">
+                            <div className="flex gap-3 flex-wrap items-center">
                               <button
                                 onClick={() => {
                                   const appointmentObj = appointment;
