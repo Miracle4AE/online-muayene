@@ -1760,18 +1760,85 @@ export default function DoctorDashboardPage() {
           <div className="bg-white rounded-lg shadow-lg p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Randevu Takvimi</h2>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition" onClick={() => setShowNewAppointmentModal(true)}>
                 Yeni Randevu Oluştur
               </button>
             </div>
             
-            {/* Takvim görünümü placeholder */}
-            <div className="border rounded-lg p-8 text-center text-gray-500">
-              <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p>Randevu takvimi burada görüntülenecek</p>
-              <p className="text-sm text-gray-400 mt-2">Yakında eklenecek</p>
+            <div className="overflow-x-auto">
+              {loadingTodayAppointments ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : !todayAppointments || todayAppointments.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500 text-sm">Bugün için randevu bulunmuyor</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Saat</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Hasta</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Tür</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">Durum</th>
+                      <th className="text-left py-2 px-4 text-sm font-medium text-gray-700">İşlemler</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todayAppointments.map((appointment: any, index: number) => {
+                      const appointmentDate = appointment?.appointmentDate ? new Date(appointment.appointmentDate) : null;
+                      const timeStr = appointmentDate && !isNaN(appointmentDate.getTime()) 
+                        ? appointmentDate.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+                        : "-";
+                      const patientName = appointment?.patient?.name || appointment?.patient?.email || "Bilinmeyen Hasta";
+                      const aptType = appointment?.meetingLink ? "Online" : "Yüz Yüze";
+                      const status = appointment?.status || "PENDING";
+
+                      const statusBadge =
+                        status === "PENDING" ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Bekliyor</span>
+                        ) : status === "CONFIRMED" ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Onaylandı</span>
+                        ) : status === "IN_PROGRESS" ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">Devam Ediyor</span>
+                        ) : status === "COMPLETED" ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Tamamlandı</span>
+                        ) : status === "CANCELLED" ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">İptal Edildi</span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Bilinmiyor</span>
+                        );
+
+                      return (
+                        <tr key={appointment?.id || `apt-${index}`} className="border-b hover:bg-gray-50">
+                          <td className="py-3 px-4 text-sm text-gray-900">{timeStr}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{patientName}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{aptType}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{statusBadge}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const appointmentObj = appointment;
+                                  setSelectedAppointment(appointmentObj);
+                                  setShowAppointmentModal(true);
+                                }}
+                                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                              >
+                                Detay
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         )}
