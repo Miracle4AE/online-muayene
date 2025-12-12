@@ -73,6 +73,7 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -667,12 +668,14 @@ export default function PatientDashboard() {
     e.preventDefault();
     if (!selectedAppointment || !uploadFile || !uploadTitle || !uploadDocumentType) {
       setError("Lütfen tüm alanları doldurun");
+      setSuccess("");
       return;
     }
 
     try {
       setUploading(true);
       setError("");
+      setSuccess("");
 
       const formData = new FormData();
       formData.append("file", uploadFile);
@@ -698,8 +701,7 @@ export default function PatientDashboard() {
       }
 
       const data = await response.json();
-      setShowUploadModal(false);
-      setSelectedAppointment(null);
+      setSuccess(data.message || "Rapor başarıyla yüklendi. Yapay zeka analizi yapılıyor...");
       setUploadFile(null);
       setUploadTitle("");
       setUploadDocumentType("");
@@ -708,10 +710,9 @@ export default function PatientDashboard() {
       // Randevuları ve raporları yenile
       await fetchAppointments();
       await fetchPatientDocuments();
-      
-      alert(data.message || "Rapor başarıyla yüklendi!");
     } catch (err: any) {
       setError(err.message || "Rapor yüklenirken bir hata oluştu");
+      setSuccess("");
     } finally {
       setUploading(false);
     }
@@ -1215,6 +1216,8 @@ export default function PatientDashboard() {
                   onClick={() => {
                     setShowUploadModal(false);
                     setSelectedAppointment(null);
+                    setError("");
+                    setSuccess("");
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -1227,6 +1230,11 @@ export default function PatientDashboard() {
               {error && (
                 <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                   {error}
+                </div>
+              )}
+              {success && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded-lg">
+                  {success}
                 </div>
               )}
 
