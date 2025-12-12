@@ -152,6 +152,10 @@ export default function DoctorDashboardPage() {
   const [followedPatients, setFollowedPatients] = useState<any[]>([]);
   const [loadingFollowedPatients, setLoadingFollowedPatients] = useState(false);
   const [isFollowingPatient, setIsFollowingPatient] = useState<{ [key: string]: boolean }>({});
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleTarget, setRescheduleTarget] = useState<any | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -1157,6 +1161,88 @@ export default function DoctorDashboardPage() {
     }
   };
 
+  const handleCancelAppointment = async (appointmentId: string) => {
+    if (!session?.user?.id) return;
+    const ok = window.confirm("Randevuyu iptal etmek istediğinize emin misiniz?");
+    if (!ok) return;
+
+    try {
+      setLoadingTodayAppointments(true);
+      const response = await fetch(`/api/doctors/appointments/${appointmentId}/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": session.user.id,
+          "x-user-role": session.user.role,
+        },
+        credentials: "include",
+        body: JSON.stringify({ action: "CANCEL" }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Randevu iptal edilemedi");
+      }
+
+      showSuccess("Randevu iptal edildi");
+      fetchTodayAppointments();
+      fetchAvailableMeetings();
+      fetchStats();
+    } catch (err: any) {
+      showError(err.message || "Randevu iptal edilirken bir hata oluştu");
+    } finally {
+      setLoadingTodayAppointments(false);
+    }
+  };
+
+  const openRescheduleModal = (appointment: any) => {
+    setRescheduleTarget(appointment);
+    setRescheduleDate("");
+    setRescheduleTime("");
+    setShowRescheduleModal(true);
+  };
+
+  const submitReschedule = async () => {
+    if (!session?.user?.id || !rescheduleTarget) return;
+    if (!rescheduleDate || !rescheduleTime) {
+      showError("Yeni tarih ve saat seçin");
+      return;
+    }
+
+    const newDateTime = new Date(`${rescheduleDate}T${rescheduleTime}`);
+    const isoDateTime = newDateTime.toISOString();
+
+    try {
+      setLoadingTodayAppointments(true);
+      const response = await fetch(`/api/doctors/appointments/${rescheduleTarget.id}/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": session.user.id,
+          "x-user-role": session.user.role,
+        },
+        credentials: "include",
+        body: JSON.stringify({ action: "RESCHEDULE", appointmentDate: isoDateTime }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Randevu ertelenemedi");
+      }
+
+      showSuccess("Randevu ertelendi");
+      setShowRescheduleModal(false);
+      setRescheduleTarget(null);
+      fetchTodayAppointments();
+      fetchAvailableMeetings();
+      fetchStats();
+    } catch (err: any) {
+      showError(err.message || "Randevu ertelenirken bir hata oluştu");
+    } finally {
+      setLoadingTodayAppointments(false);
+    }
+  };
+
   const searchPatients = async () => {
     if (verificationStatus !== "APPROVED") {
       setError("Hasta araması yapabilmek için hesabınızın onaylanmış olması gerekmektedir.");
@@ -1342,6 +1428,70 @@ export default function DoctorDashboardPage() {
                     );
                   })
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Randevu Ertele Modal */}
+        {showRescheduleModal && rescheduleTarget && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+              <div className="flex justify-between items-center px-6 py-4 border-b">
+                <h3 className="text-xl font-bold text-gray-900">Randevuyu Ertele</h3>
+                <button
+                  onClick={() => setShowRescheduleModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-sm text-gray-700 font-semibold mb-2">Hasta</p>
+                  <p className="text-sm text-gray-900">
+                    {rescheduleTarget.patient?.name || rescheduleTarget.patient?.email || "Bilinmeyen Hasta"}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Yeni Tarih</label>
+                    <input
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Yeni Saat</label>
+                    <input
+                      type="time"
+                      value={rescheduleTime}
+                      onChange={(e) => setRescheduleTime(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    onClick={() => setShowRescheduleModal(false)}
+                    className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    onClick={submitReschedule}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Kaydet
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1731,18 +1881,32 @@ export default function DoctorDashboardPage() {
                               </span>
                             </td>
                             <td className="py-3 px-4">
-                              <button 
-                                onClick={() => {
-                                  setSelectedAppointment(appointment);
-                                  setShowAppointmentModal(true);
-                                  if (appointment?.id) {
-                                    fetchAppointmentDocuments(appointment.id);
-                                  }
-                                }}
-                                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                              >
-                                Detay
-                              </button>
+                              <div className="flex gap-2 flex-wrap">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedAppointment(appointment);
+                                    setShowAppointmentModal(true);
+                                    if (appointment?.id) {
+                                      fetchAppointmentDocuments(appointment.id);
+                                    }
+                                  }}
+                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                >
+                                  Detay
+                                </button>
+                                <button
+                                  onClick={() => handleCancelAppointment(appointment.id)}
+                                  className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                  İptal Et
+                                </button>
+                                <button
+                                  onClick={() => openRescheduleModal(appointment)}
+                                  className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                                >
+                                  Ertele
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1820,7 +1984,7 @@ export default function DoctorDashboardPage() {
                           <td className="py-3 px-4 text-sm text-gray-900">{aptType}</td>
                           <td className="py-3 px-4 text-sm text-gray-900">{statusBadge}</td>
                           <td className="py-3 px-4 text-sm text-gray-900">
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               <button
                                 onClick={() => {
                                   const appointmentObj = appointment;
@@ -1830,6 +1994,18 @@ export default function DoctorDashboardPage() {
                                 className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
                               >
                                 Detay
+                              </button>
+                              <button
+                                onClick={() => handleCancelAppointment(appointment.id)}
+                                className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
+                              >
+                                İptal Et
+                              </button>
+                              <button
+                                onClick={() => openRescheduleModal(appointment)}
+                                className="px-3 py-1 text-sm text-orange-600 hover:text-orange-800"
+                              >
+                                Ertele
                               </button>
                             </div>
                           </td>
