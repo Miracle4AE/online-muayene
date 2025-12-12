@@ -73,6 +73,7 @@ export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [success, setSuccess] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -111,6 +112,12 @@ export default function PatientDashboard() {
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{ specialization: string; explanation: string } | null>(null);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const showToast = (type: "success" | "error" | "info", message: string, duration = 4000) => {
+    setToast({ type, message });
+    if (duration > 0) {
+      setTimeout(() => setToast(null), duration);
+    }
+  };
   
   // Veri paylaşımı izinleri
   const [shareDataWithSameHospital, setShareDataWithSameHospital] = useState(false);
@@ -360,7 +367,7 @@ export default function PatientDashboard() {
       await fetchFavoriteDoctors();
       // Modal açıksa kapatma, sadece listeyi yenile
     } catch (err: any) {
-      alert(err.message || "Bir hata oluştu");
+      showToast("error", err.message || "Bir hata oluştu");
     }
   };
 
@@ -424,11 +431,11 @@ export default function PatientDashboard() {
 
     const validFiles = files.filter((file) => {
       if (!allowedTypes.includes(file.type)) {
-        alert(`${file.name} geçersiz dosya tipi. Sadece PDF, resim ve Office dosyaları kabul edilir.`);
+        showToast("error", `${file.name} geçersiz dosya tipi. Sadece PDF, resim ve Office dosyaları kabul edilir.`);
         return false;
       }
       if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name} dosya boyutu çok büyük. Maksimum 10MB olmalıdır.`);
+        showToast("error", `${file.name} dosya boyutu çok büyük. Maksimum 10MB olmalıdır.`);
         return false;
       }
       return true;
@@ -449,7 +456,7 @@ export default function PatientDashboard() {
 
   const handleAISuggestion = async () => {
     if (!aiComplaint.trim() || aiComplaint.length < 10) {
-      alert("Lütfen en az 10 karakterlik bir şikayet yazın");
+      showToast("error", "Lütfen en az 10 karakterlik bir şikayet yazın");
       return;
     }
 
@@ -481,7 +488,7 @@ export default function PatientDashboard() {
         explanation: data.explanation,
       });
     } catch (err: any) {
-      alert(err.message || "AI önerisi alınırken bir hata oluştu");
+      showToast("error", err.message || "AI önerisi alınırken bir hata oluştu");
     } finally {
       setAiSuggesting(false);
     }
@@ -489,12 +496,12 @@ export default function PatientDashboard() {
 
   const handleSendMessage = async () => {
     if (!selectedDoctor || !messageText.trim() || messageText.length < 10) {
-      alert("Lütfen en az 10 karakterlik bir mesaj yazın");
+      showToast("error", "Lütfen en az 10 karakterlik bir mesaj yazın");
       return;
     }
 
     if (!consentAccepted) {
-      alert("Mesaj göndermek için lütfen onam metnini okuyup onaylayın");
+      showToast("error", "Mesaj göndermek için lütfen onam metnini okuyup onaylayın");
       return;
     }
 
@@ -528,7 +535,7 @@ export default function PatientDashboard() {
       }
 
       const data = await response.json();
-      alert(data.info || "Mesajınız doktora iletildi!");
+      showToast("success", data.info || "Mesajınız doktora iletildi!");
       
       // Modalı kapat ve formu temizle
       setShowAskDoctorModal(false);
@@ -542,7 +549,7 @@ export default function PatientDashboard() {
       // Mesajları yenile
       await fetchPatientMessages();
     } catch (err: any) {
-      alert(err.message || "Mesaj gönderilirken bir hata oluştu");
+      showToast("error", err.message || "Mesaj gönderilirken bir hata oluştu");
     } finally {
       setSendingMessage(false);
       setUploadingFiles(false);
@@ -732,6 +739,19 @@ export default function PatientDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 relative pb-12">
+      {toast && (
+        <div
+          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium ${
+            toast.type === "success"
+              ? "bg-green-600 text-white"
+              : toast.type === "error"
+              ? "bg-red-600 text-white"
+              : "bg-gray-900 text-white"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
