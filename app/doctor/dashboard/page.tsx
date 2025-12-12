@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/providers/ToastProvider";
 
@@ -25,6 +25,33 @@ interface Patient {
     medications?: string;
   };
 }
+
+const generateTimeSlots = (
+  startHour = 8,
+  endHour = 23,
+  intervalMinutes = 15
+): { value: string; label: string }[] => {
+  const slots: { value: string; label: string }[] = [];
+  const pad = (n: number) => n.toString().padStart(2, "0");
+
+  const startTotalMinutes = startHour * 60;
+  const endBoundary = endHour * 60 + 45; // allow slots up to endHour:45 without crossing midnight
+
+  for (let minutes = startTotalMinutes; minutes + intervalMinutes < 24 * 60 && minutes < endBoundary; minutes += intervalMinutes) {
+    const startHourVal = Math.floor(minutes / 60);
+    const startMinuteVal = minutes % 60;
+    const endMinutes = minutes + intervalMinutes;
+    const endHourVal = Math.floor(endMinutes / 60);
+    const endMinuteVal = endMinutes % 60;
+
+    const startStr = `${pad(startHourVal)}:${pad(startMinuteVal)}`;
+    const endStr = `${pad(endHourVal)}:${pad(endMinuteVal)}`;
+
+    slots.push({ value: startStr, label: `${startStr} - ${endStr}` });
+  }
+
+  return slots;
+};
 
 interface PatientDetails {
   patient: {
@@ -69,6 +96,7 @@ export default function DoctorDashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { showSuccess, showError } = useToast();
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
   const [searchEmail, setSearchEmail] = useState("");
   const [searchName, setSearchName] = useState("");
   const [searchTcKimlikNo, setSearchTcKimlikNo] = useState("");
@@ -1535,12 +1563,18 @@ export default function DoctorDashboardPage() {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Yeni Saat</label>
-                    <input
-                      type="time"
+                    <select
                       value={rescheduleTime}
                       onChange={(e) => setRescheduleTime(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                      className="w-full border rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Saat seçiniz...</option>
+                      {timeSlots.map((slot) => (
+                        <option key={slot.value} value={slot.value}>
+                          {slot.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
