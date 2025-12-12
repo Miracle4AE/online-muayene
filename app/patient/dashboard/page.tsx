@@ -126,19 +126,6 @@ export default function PatientDashboard() {
   const [consentTypeDashboard, setConsentTypeDashboard] = useState<"same" | "other" | null>(null);
   const [consentActionDashboard, setConsentActionDashboard] = useState<"enable" | "disable" | null>(null);
   
-  // Toast notification state
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [toastType, setToastType] = useState<"success" | "error" | "info">("success");
-
-  const showToastNotification = (message: string, type: "success" | "error" | "info" = "success") => {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 3000);
-  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -290,10 +277,10 @@ export default function PatientDashboard() {
       }
 
       setShowConsentModalDashboard(false);
-      showToastNotification("İzin başarıyla güncellendi!", "success");
+      showToast("success", "İzin başarıyla güncellendi!");
     } catch (err) {
       setShowConsentModalDashboard(false);
-      showToastNotification("Bir hata oluştu. Lütfen tekrar deneyin.", "error");
+      showToast("error", "Bir hata oluştu. Lütfen tekrar deneyin.");
     }
   };
 
@@ -3504,43 +3491,6 @@ export default function PatientDashboard() {
           </div>
         )}
 
-        {/* Toast Notification */}
-        {showToast && (
-          <div className="fixed top-4 right-4 z-[9999] animate-slide-in-right">
-            <div className={`min-w-[300px] max-w-md rounded-xl shadow-2xl p-4 flex items-center gap-3 ${
-              toastType === "success" 
-                ? "bg-green-500 text-white" 
-                : toastType === "error"
-                ? "bg-red-500 text-white"
-                : "bg-blue-500 text-white"
-            }`}>
-              <div className="flex-shrink-0">
-                {toastType === "success" ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : toastType === "error" ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                )}
-              </div>
-              <p className="flex-1 font-medium">{toastMessage}</p>
-              <button
-                onClick={() => setShowToast(false)}
-                className="flex-shrink-0 hover:opacity-80 transition-opacity"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
       </main>
       
       {/* Footer */}
