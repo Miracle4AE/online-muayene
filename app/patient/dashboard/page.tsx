@@ -1239,7 +1239,7 @@ export default function PatientDashboard() {
                     type="text"
                     value={uploadTitle}
                     onChange={(e) => setUploadTitle(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white placeholder:text-gray-500"
                     placeholder="Örn: Kan Tahlili Sonuçları"
                     required
                   />
@@ -1252,7 +1252,7 @@ export default function PatientDashboard() {
                   <select
                     value={uploadDocumentType}
                     onChange={(e) => setUploadDocumentType(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 bg-white"
                     required
                   >
                     <option value="">Seçiniz</option>
@@ -1291,7 +1291,7 @@ export default function PatientDashboard() {
                   <textarea
                     value={uploadDescription}
                     onChange={(e) => setUploadDescription(e.target.value)}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-gray-900 bg-white placeholder:text-gray-500"
                     rows={3}
                     placeholder="Rapor hakkında ek bilgiler..."
                   />
