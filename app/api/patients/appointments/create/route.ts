@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
         patientId: patientId,
         hospitalId: doctor.hospitalId, // Doktorun hastane ID'si
         appointmentDate: appointmentDate,
-        status: "PENDING", // Hasta tarafından oluşturulduğu için PENDING (doktor onaylayacak)
+        // Hasta ödeme yaparak randevu alır; bu nedenle otomatik CONFIRMED
+        status: "CONFIRMED",
         notes: validatedData.notes || null,
         meetingLink: meetingLink,
         // Ödeme bilgileri
