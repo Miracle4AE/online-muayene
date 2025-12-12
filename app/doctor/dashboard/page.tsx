@@ -156,6 +156,8 @@ export default function DoctorDashboardPage() {
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [rescheduleTarget, setRescheduleTarget] = useState<any | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -1161,14 +1163,17 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  const handleCancelAppointment = async (appointmentId: string) => {
-    if (!session?.user?.id) return;
-    const ok = window.confirm("Randevuyu iptal etmek istediğinize emin misiniz?");
-    if (!ok) return;
+  const handleCancelClick = (appointment: any) => {
+    setCancelTarget(appointment);
+    setShowCancelModal(true);
+  };
 
+  const confirmCancelAppointment = async () => {
+    if (!session?.user?.id || !cancelTarget?.id) return;
+    
     try {
       setLoadingTodayAppointments(true);
-      const response = await fetch(`/api/doctors/appointments/${appointmentId}/update`, {
+      const response = await fetch(`/api/doctors/appointments/${cancelTarget.id}/update`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -1185,6 +1190,8 @@ export default function DoctorDashboardPage() {
       }
 
       showSuccess("Randevu iptal edildi");
+      setShowCancelModal(false);
+      setCancelTarget(null);
       fetchTodayAppointments();
       fetchAvailableMeetings();
       fetchStats();
@@ -1428,6 +1435,65 @@ export default function DoctorDashboardPage() {
                     );
                   })
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Randevu İptal Modal */}
+        {showCancelModal && cancelTarget && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full">
+              <div className="flex justify-between items-center px-6 py-4 border-b">
+                <h3 className="text-xl font-bold text-gray-900">Randevuyu İptal Et</h3>
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setCancelTarget(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-sm text-gray-700">
+                  <strong>{cancelTarget.patient?.name || cancelTarget.patient?.email || "Bilinmeyen Hasta"}</strong> için
+                  {cancelTarget.appointmentDate ? (
+                    <>
+                      {" "}
+                      {new Date(cancelTarget.appointmentDate).toLocaleString("tr-TR", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </>
+                  ) : null}{" "}
+                  randevuyu iptal etmek istediğinize emin misiniz?
+                </p>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setShowCancelModal(false);
+                      setCancelTarget(null);
+                    }}
+                    className="px-4 py-2 rounded-lg border text-gray-700 hover:bg-gray-50"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    onClick={confirmCancelAppointment}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                  >
+                    İptal Et
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1895,7 +1961,7 @@ export default function DoctorDashboardPage() {
                                   Detay
                                 </button>
                                 <button
-                                  onClick={() => handleCancelAppointment(appointment.id)}
+                                  onClick={() => handleCancelClick(appointment)}
                                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                                 >
                                   İptal Et
@@ -1996,7 +2062,7 @@ export default function DoctorDashboardPage() {
                                 Detay
                               </button>
                               <button
-                                onClick={() => handleCancelAppointment(appointment.id)}
+                                onClick={() => handleCancelClick(appointment)}
                                 className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
                               >
                                 İptal Et
