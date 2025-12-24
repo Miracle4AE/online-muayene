@@ -35,9 +35,9 @@ const generateTimeSlots = (
   const pad = (n: number) => n.toString().padStart(2, "0");
 
   const startTotalMinutes = startHour * 60;
-  const endBoundary = endHour * 60 + 45; // allow slots up to endHour:45 without crossing midnight
+  const endBoundary = endHour * 60 + 59; // 23:59'a kadar olan slotları dahil et
 
-  for (let minutes = startTotalMinutes; minutes + intervalMinutes < 24 * 60 && minutes < endBoundary; minutes += intervalMinutes) {
+  for (let minutes = startTotalMinutes; minutes + intervalMinutes < 24 * 60 && minutes <= endBoundary; minutes += intervalMinutes) {
     const startHourVal = Math.floor(minutes / 60);
     const startMinuteVal = minutes % 60;
     const endMinutes = minutes + intervalMinutes;
