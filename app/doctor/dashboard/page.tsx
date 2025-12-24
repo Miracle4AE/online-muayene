@@ -34,20 +34,17 @@ const generateTimeSlots = (
   const slots: { value: string; label: string }[] = [];
   const pad = (n: number) => n.toString().padStart(2, "0");
 
-  const startTotalMinutes = startHour * 60;
-  const endBoundary = endHour * 60 + 59; // 23:59'a kadar olan slotları dahil et
+  // 08:00'dan 23:45'e kadar tüm slotlar
+  for (let hour = startHour; hour <= endHour; hour++) {
+    for (let minute = 0; minute < 60; minute += intervalMinutes) {
+      const startStr = `${pad(hour)}:${pad(minute)}`;
+      const endMinute = minute + intervalMinutes;
+      const endHour = endMinute >= 60 ? hour + 1 : hour;
+      const endMin = endMinute >= 60 ? endMinute - 60 : endMinute;
+      const endStr = `${pad(endHour)}:${pad(endMin)}`;
 
-  for (let minutes = startTotalMinutes; minutes + intervalMinutes <= 24 * 60 && minutes <= endBoundary; minutes += intervalMinutes) {
-    const startHourVal = Math.floor(minutes / 60);
-    const startMinuteVal = minutes % 60;
-    const endMinutes = minutes + intervalMinutes;
-    const endHourVal = Math.floor(endMinutes / 60);
-    const endMinuteVal = endMinutes % 60;
-
-    const startStr = `${pad(startHourVal)}:${pad(startMinuteVal)}`;
-    const endStr = `${pad(endHourVal)}:${pad(endMinuteVal)}`;
-
-    slots.push({ value: startStr, label: `${startStr} - ${endStr}` });
+      slots.push({ value: startStr, label: `${startStr} - ${endStr}` });
+    }
   }
 
   return slots;
