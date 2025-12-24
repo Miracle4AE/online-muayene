@@ -92,13 +92,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Randevu saatini kontrol et
+    // Randevu saatini kontrol et (15 dakika önce başlatılabilir)
     const now = new Date();
     const appointmentDate = new Date(appointment.appointmentDate);
+    const appointmentStartWithTolerance = new Date(appointmentDate);
+    appointmentStartWithTolerance.setMinutes(appointmentStartWithTolerance.getMinutes() - 15); // 15 dakika önce başlatılabilir
     const appointmentEndTime = new Date(appointmentDate);
-    appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + 15); // 15 dakika
+    appointmentEndTime.setMinutes(appointmentEndTime.getMinutes() + 30); // Randevudan 30 dakika sonraya kadar açık
 
-    if (now < appointmentDate) {
+    if (now < appointmentStartWithTolerance) {
       return NextResponse.json(
         { error: "Randevu saati henüz gelmedi" },
         { status: 400 }
