@@ -11,7 +11,8 @@ function base64UrlToBytes(input: string): Uint8Array {
   const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64 + "===".slice((base64.length + 3) % 4);
   const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.charCodeAt(i);
   }
@@ -42,7 +43,12 @@ async function verifyAdminTokenEdge(token: string): Promise<{ valid: boolean; pa
       ["verify"]
     );
     const signature = base64UrlToBytes(signaturePart);
-    const isValid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(data));
+    const isValid = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      signature.buffer,
+      encoder.encode(data)
+    );
     if (!isValid) return { valid: false };
 
     const payload = JSON.parse(base64UrlToString(payloadPart)) as AdminTokenPayload;
