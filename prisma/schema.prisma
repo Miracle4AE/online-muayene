@@ -129,7 +129,7 @@ model PatientProfile {
   userId           String    @unique
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tcKimlikNo       String    // T.C. Kimlik Numarası (şifreli)
-  tcKimlikNoHash   String    @unique // T.C. Kimlik Numarası hash (arama/unique)
+  tcKimlikNoHash   String?   @unique // T.C. Kimlik Numarası hash (arama/unique)
   dateOfBirth      DateTime?
   gender           String?
   address          String?
