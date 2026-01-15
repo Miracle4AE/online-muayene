@@ -144,7 +144,7 @@ export async function GET(
     // Randevuları filtrele - hangi randevuların bilgilerini gösterebileceğini belirle
     patientData.patientAppointments = patient.patientAppointments.filter(apt => {
       const aptDoctorHospital = apt.doctor?.doctorProfile?.hospital || "";
-      const isOwnAppointment = apt.doctorId === userId;
+      const isOwnAppointment = apt.doctorId === auth.userId;
       const isSameHospital = aptDoctorHospital === doctorHospital && doctorHospital !== "" && aptDoctorHospital !== "";
       const isOtherHospital = aptDoctorHospital !== doctorHospital && aptDoctorHospital !== "";
 

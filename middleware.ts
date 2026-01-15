@@ -1,13 +1,67 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse, NextRequest } from "next/server";
-import { verifyAdminToken } from "@/lib/admin-token";
 
-// Admin token kontrolü fonksiyonu
-function isAdminAuthenticated(req: NextRequest): boolean {
+type AdminTokenPayload = {
+  email: string;
+  hospitalId: string;
+  exp: number;
+};
+
+function base64UrlToBytes(input: string): Uint8Array {
+  const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "===".slice((base64.length + 3) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function base64UrlToString(input: string): string {
+  const bytes = base64UrlToBytes(input);
+  const decoder = new TextDecoder();
+  return decoder.decode(bytes);
+}
+
+async function verifyAdminTokenEdge(token: string): Promise<{ valid: boolean; payload?: AdminTokenPayload }> {
+  try {
+    const secret = process.env.ADMIN_TOKEN_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!secret) return { valid: false };
+
+    const [headerPart, payloadPart, signaturePart] = token.split(".");
+    if (!headerPart || !payloadPart || !signaturePart) return { valid: false };
+
+    const data = `${headerPart}.${payloadPart}`;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+    const signature = base64UrlToBytes(signaturePart);
+    const isValid = await crypto.subtle.verify("HMAC", key, signature, encoder.encode(data));
+    if (!isValid) return { valid: false };
+
+    const payload = JSON.parse(base64UrlToString(payloadPart)) as AdminTokenPayload;
+    if (!payload?.email || !payload?.hospitalId || !payload?.exp) return { valid: false };
+
+    if (payload.exp < Math.floor(Date.now() / 1000)) return { valid: false };
+
+    return { valid: true, payload };
+  } catch {
+    return { valid: false };
+  }
+}
+
+// Admin token kontrolü fonksiyonu (Edge uyumlu)
+async function isAdminAuthenticated(req: NextRequest): Promise<boolean> {
   const token = req.cookies.get("admin_token")?.value;
   if (!token) return false;
 
-  const verified = verifyAdminToken(token);
+  const verified = await verifyAdminTokenEdge(token);
   if (!verified.valid || !verified.payload?.email) return false;
 
   const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
@@ -15,7 +69,7 @@ function isAdminAuthenticated(req: NextRequest): boolean {
 }
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
 
@@ -26,7 +80,7 @@ export default withAuth(
 
     // Admin route'ları için özel kontrol
     if (path.startsWith("/admin") && path !== "/admin" && !path.startsWith("/admin/login")) {
-      if (!isAdminAuthenticated(req)) {
+      if (!(await isAdminAuthenticated(req))) {
         return NextResponse.redirect(new URL("/admin/login", req.url));
       }
       // Admin girişi yapılmış, devam et
