@@ -86,6 +86,8 @@ export default function PatientDashboard() {
   const [pastAppointments, setPastAppointments] = useState<Appointment[]>([]);
   const [selectedPastAppointment, setSelectedPastAppointment] = useState<Appointment | null>(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH">("ALL");
+  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "COMPLETED" | "CANCELLED">("ALL");
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [selectedAppointmentForMeeting, setSelectedAppointmentForMeeting] = useState<Appointment | null>(null);
   const [submittingConsent, setSubmittingConsent] = useState(false);
@@ -712,6 +714,79 @@ export default function PatientDashboard() {
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    if (status === "CONFIRMED") {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          Onaylandı
+        </span>
+      );
+    }
+
+    if (status === "PENDING") {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3a9 9 0 100 18 9 9 0 000-18z" />
+          </svg>
+          Bekliyor
+        </span>
+      );
+    }
+
+    if (status === "CANCELLED") {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          İptal
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        Tamamlandı
+      </span>
+    );
+  };
+
+  const applyAppointmentFilters = (items: Appointment[]) => {
+    let filtered = items;
+
+    if (appointmentStatusFilter !== "ALL") {
+      filtered = filtered.filter((item) => item.status === appointmentStatusFilter);
+    }
+
+    if (appointmentDateFilter !== "ALL") {
+      const now = new Date();
+      filtered = filtered.filter((item) => {
+        const date = new Date(item.appointmentDate);
+        if (appointmentDateFilter === "TODAY") {
+          return date.toDateString() === now.toDateString();
+        }
+        if (appointmentDateFilter === "WEEK") {
+          const diffDays = Math.abs(date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays <= 7;
+        }
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredUpcomingAppointments = applyAppointmentFilters(upcomingAppointments);
+  const filteredPastAppointments = applyAppointmentFilters(pastAppointments);
+
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1050,7 +1125,52 @@ export default function PatientDashboard() {
             </Link>
           </div>
 
-          {upcomingAppointments.length === 0 && pastAppointments.length === 0 ? (
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-primary-700">Tarih</span>
+              <select
+                value={appointmentDateFilter}
+                onChange={(event) => setAppointmentDateFilter(event.target.value as "ALL" | "TODAY" | "WEEK" | "MONTH")}
+                className="text-sm border border-primary-200 rounded-lg px-3 py-2 bg-white text-primary-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="ALL">Tümü</option>
+                <option value="TODAY">Bugün</option>
+                <option value="WEEK">Bu hafta</option>
+                <option value="MONTH">Bu ay</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-primary-700">Durum</span>
+              <select
+                value={appointmentStatusFilter}
+                onChange={(event) =>
+                  setAppointmentStatusFilter(
+                    event.target.value as "ALL" | "CONFIRMED" | "PENDING" | "COMPLETED" | "CANCELLED"
+                  )
+                }
+                className="text-sm border border-primary-200 rounded-lg px-3 py-2 bg-white text-primary-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="ALL">Tümü</option>
+                <option value="CONFIRMED">Onaylandı</option>
+                <option value="PENDING">Bekliyor</option>
+                <option value="COMPLETED">Tamamlandı</option>
+                <option value="CANCELLED">İptal</option>
+              </select>
+            </div>
+            {(appointmentDateFilter !== "ALL" || appointmentStatusFilter !== "ALL") && (
+              <button
+                onClick={() => {
+                  setAppointmentDateFilter("ALL");
+                  setAppointmentStatusFilter("ALL");
+                }}
+                className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+              >
+                Filtreyi sıfırla
+              </button>
+            )}
+          </div>
+
+          {filteredUpcomingAppointments.length === 0 && filteredPastAppointments.length === 0 ? (
             <div className="text-center py-12">
               <svg
                 className="w-16 h-16 text-primary-300 mx-auto mb-4"
@@ -1078,7 +1198,7 @@ export default function PatientDashboard() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-primary-900">Yaklaşan Randevularım</h3>
-                  {upcomingAppointments.length > 3 && (
+                  {filteredUpcomingAppointments.length > 3 && (
                     <button
                       onClick={() => setShowMyAppointmentsModal(true)}
                       className="text-sm font-semibold text-primary-600 hover:text-primary-700"
@@ -1087,13 +1207,13 @@ export default function PatientDashboard() {
                     </button>
                   )}
                 </div>
-                {upcomingAppointments.length === 0 ? (
+                {filteredUpcomingAppointments.length === 0 ? (
                   <div className="text-sm text-primary-600 bg-primary-50 rounded-lg p-4">
                     Yaklaşan randevunuz bulunmuyor.
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {upcomingAppointments.slice(0, 3).map((appointment) => (
+                    {filteredUpcomingAppointments.slice(0, 3).map((appointment) => (
                       <div
                         key={appointment.id}
                         className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -1111,21 +1231,7 @@ export default function PatientDashboard() {
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                appointment.status === "CONFIRMED"
-                                  ? "bg-green-100 text-green-800"
-                                  : appointment.status === "PENDING"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {appointment.status === "CONFIRMED"
-                                ? "Onaylandı"
-                                : appointment.status === "PENDING"
-                                ? "Bekliyor"
-                                : "Tamamlandı"}
-                            </span>
+                            {getStatusBadge(appointment.status)}
                             {appointment.meetingLink && (() => {
                               const canJoin = canJoinMeeting(appointment.appointmentDate);
                               const appointmentTime = new Date(appointment.appointmentDate);
@@ -1228,7 +1334,7 @@ export default function PatientDashboard() {
               <div className="pt-6 border-t border-primary-200">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-primary-900">Geçmiş Randevularım</h3>
-                  {pastAppointments.length > 3 && (
+                  {filteredPastAppointments.length > 3 && (
                     <button
                       onClick={() => setShowPastAppointmentsModal(true)}
                       className="text-sm font-semibold text-primary-600 hover:text-primary-700"
@@ -1237,13 +1343,13 @@ export default function PatientDashboard() {
                     </button>
                   )}
                 </div>
-                {pastAppointments.length === 0 ? (
+                {filteredPastAppointments.length === 0 ? (
                   <div className="text-sm text-primary-600 bg-primary-50 rounded-lg p-4">
                     Geçmiş randevunuz bulunmuyor.
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {pastAppointments.slice(0, 3).map((appointment) => (
+                    {filteredPastAppointments.slice(0, 3).map((appointment) => (
                       <div
                         key={appointment.id}
                         className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -1261,21 +1367,7 @@ export default function PatientDashboard() {
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                appointment.status === "CONFIRMED"
-                                  ? "bg-green-100 text-green-800"
-                                  : appointment.status === "PENDING"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {appointment.status === "CONFIRMED"
-                                ? "Onaylandı"
-                                : appointment.status === "PENDING"
-                                ? "Bekliyor"
-                                : "Tamamlandı"}
-                            </span>
+                            {getStatusBadge(appointment.status)}
                             {appointment.meetingLink && (
                               <button
                                 disabled
@@ -1790,7 +1882,7 @@ export default function PatientDashboard() {
               </div>
 
               <div className="p-6">
-                {pastAppointments.length === 0 ? (
+                {filteredPastAppointments.length === 0 ? (
                   <div className="text-center py-12">
                     <svg
                       className="w-16 h-16 text-primary-300 mx-auto mb-4"
@@ -1809,7 +1901,7 @@ export default function PatientDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {pastAppointments.map((appointment) => (
+                    {filteredPastAppointments.map((appointment) => (
                       <div
                         key={appointment.id}
                         className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
@@ -1852,21 +1944,7 @@ export default function PatientDashboard() {
                             </p>
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            <span
-                              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                appointment.status === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : appointment.status === "CANCELLED"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {appointment.status === "COMPLETED"
-                                ? "Tamamlandı"
-                                : appointment.status === "CANCELLED"
-                                ? "İptal Edildi"
-                                : "Geçmiş"}
-                            </span>
+                            {getStatusBadge(appointment.status)}
                             <button className="text-primary-600 hover:text-primary-800 text-sm font-semibold">
                               Detayları Gör →
                             </button>
@@ -2801,7 +2879,7 @@ export default function PatientDashboard() {
               </div>
 
               <div className="p-6">
-                {appointments.length === 0 ? (
+                {filteredUpcomingAppointments.length === 0 ? (
                   <div className="text-center py-12">
                     <svg
                       className="w-16 h-16 text-primary-300 mx-auto mb-4"
@@ -2826,7 +2904,7 @@ export default function PatientDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {appointments.map((appointment) => {
+                    {filteredUpcomingAppointments.map((appointment) => {
                       const canJoin = canJoinMeeting(appointment.appointmentDate);
                       const appointmentTime = new Date(appointment.appointmentDate);
                       const now = new Date();
@@ -2879,25 +2957,7 @@ export default function PatientDashboard() {
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                              <span
-                                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                  appointment.status === "CONFIRMED"
-                                    ? "bg-green-100 text-green-800"
-                                    : appointment.status === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : appointment.status === "COMPLETED"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {appointment.status === "CONFIRMED"
-                                  ? "Onaylandı"
-                                  : appointment.status === "PENDING"
-                                  ? "Bekliyor"
-                                  : appointment.status === "COMPLETED"
-                                  ? "Tamamlandı"
-                                  : "İptal Edildi"}
-                              </span>
+                              {getStatusBadge(appointment.status)}
                               {appointment.status === "CONFIRMED" && appointment.meetingLink && canJoin && (
                                 <button
                                   onClick={() => {
