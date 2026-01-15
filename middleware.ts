@@ -43,10 +43,11 @@ async function verifyAdminTokenEdge(token: string): Promise<{ valid: boolean; pa
       ["verify"]
     );
     const signature = base64UrlToBytes(signaturePart);
+    const signatureArrayBuffer = signature.buffer as ArrayBuffer;
     const isValid = await crypto.subtle.verify(
       "HMAC",
       key,
-      signature.buffer,
+      signatureArrayBuffer,
       encoder.encode(data)
     );
     if (!isValid) return { valid: false };
