@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
+import { decryptTcKimlik, maskTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -81,7 +82,9 @@ export async function GET(request: NextRequest) {
             name: msg.patient.name,
             email: msg.patient.email,
             phone: msg.patient.phone,
-            tcKimlikNo: msg.patient.patientProfile?.tcKimlikNo || null,
+            tcKimlikNo: msg.patient.patientProfile?.tcKimlikNo
+              ? maskTcKimlik(decryptTcKimlik(msg.patient.patientProfile.tcKimlikNo))
+              : null,
             dateOfBirth: msg.patient.patientProfile?.dateOfBirth
               ? msg.patient.patientProfile.dateOfBirth.toISOString()
               : null,

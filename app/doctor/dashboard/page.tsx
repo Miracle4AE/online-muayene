@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useToast } from "@/components/providers/ToastProvider";
 
 interface Patient {
@@ -4738,13 +4739,15 @@ export default function DoctorDashboardPage() {
                             
                             <div className="mt-3">
                               {isImage ? (
-                                <div className="relative">
-                                  <img 
-                                    src={doc.fileUrl} 
-                                    alt={doc.title || "Belge"} 
-                                    className="w-full h-48 object-cover rounded border"
+                                <div className="relative h-48 w-full">
+                                  <Image
+                                    src={doc.fileUrl}
+                                    alt={doc.title || "Belge"}
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                    className="object-cover rounded border"
                                     onError={(e) => {
-                                      (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                                      (e.currentTarget as HTMLImageElement).src = "/placeholder-image.png";
                                     }}
                                   />
                                   <a

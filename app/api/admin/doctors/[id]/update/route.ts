@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { encryptTcKimlik, hashTcKimlik } from "@/lib/encryption";
+import { verifyAdminAccess } from "@/lib/auth-helpers";
 
 // Build sırasında statik olarak analiz edilmesini engelle
 export const dynamic = 'force-dynamic';
@@ -22,44 +24,29 @@ const updateDoctorSchema = z.object({
   appointmentPrice: z.number().min(0).optional().nullable(),
 });
 
-function getAdminInfo(request: NextRequest): { email: string; hospital: string } | null {
-  const adminToken = request.cookies.get("admin_token");
-  if (!adminToken) return null;
-  
-  try {
-    const decoded = Buffer.from(adminToken.value, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    const email = parts[0];
-    const hospital = parts[1] || "";
-    
-    const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
-    if (!adminEmails.includes(email)) return null;
-    
-    let finalHospital = hospital;
-    if (!finalHospital) {
-      const adminHospitals = process.env.ADMIN_HOSPITALS?.split(",") || [];
-      const emailIndex = adminEmails.indexOf(email);
-      finalHospital = adminHospitals[emailIndex] || adminHospitals[0];
-    }
-    
-    return { email, hospital: finalHospital };
-  } catch {
-    return null;
-  }
-}
-
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const adminInfo = getAdminInfo(request);
-    if (!adminInfo) {
+    const adminAccess = await verifyAdminAccess(request);
+    if (!adminAccess.isValid || !adminAccess.hospitalId || !adminAccess.email) {
       return NextResponse.json(
         { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
         { status: 403 }
       );
     }
+
+    const hospital = await prisma.hospital.findUnique({
+      where: { id: adminAccess.hospitalId },
+    });
+    if (!hospital) {
+      return NextResponse.json(
+        { error: "Hastane bulunamadı" },
+        { status: 404 }
+      );
+    }
+    const adminInfo = { email: adminAccess.email, hospital: hospital.name };
 
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
@@ -112,9 +99,17 @@ export async function PUT(
     }
 
     // T.C. Kimlik No kontrolü (eğer değiştiriliyorsa)
-    if (validatedData.tcKimlikNo && validatedData.tcKimlikNo !== doctor.doctorProfile.tcKimlikNo) {
+    if (validatedData.tcKimlikNo) {
+      const tcHash = hashTcKimlik(validatedData.tcKimlikNo);
+      if (!tcHash) {
+        return NextResponse.json(
+          { error: "Geçersiz T.C. Kimlik No" },
+          { status: 400 }
+        );
+      }
+
       const existingTcKimlik = await prisma.doctorProfile.findUnique({
-        where: { tcKimlikNo: validatedData.tcKimlikNo },
+        where: { tcKimlikNoHash: tcHash },
       });
 
       if (existingTcKimlik) {
@@ -149,7 +144,11 @@ export async function PUT(
     const profileUpdateData: any = {};
     if (validatedData.specialization !== undefined) profileUpdateData.specialization = validatedData.specialization;
     if (validatedData.licenseNumber !== undefined) profileUpdateData.licenseNumber = validatedData.licenseNumber;
-    if (validatedData.tcKimlikNo !== undefined) profileUpdateData.tcKimlikNo = validatedData.tcKimlikNo || null;
+    if (validatedData.tcKimlikNo !== undefined) {
+      const tcHash = validatedData.tcKimlikNo ? hashTcKimlik(validatedData.tcKimlikNo) : "";
+      profileUpdateData.tcKimlikNo = validatedData.tcKimlikNo ? encryptTcKimlik(validatedData.tcKimlikNo) : null;
+      profileUpdateData.tcKimlikNoHash = tcHash || null;
+    }
     if (validatedData.university !== undefined) profileUpdateData.university = validatedData.university || null;
     if (validatedData.graduationYear !== undefined) profileUpdateData.graduationYear = validatedData.graduationYear || null;
     if (validatedData.workStatus !== undefined) profileUpdateData.workStatus = validatedData.workStatus || null;

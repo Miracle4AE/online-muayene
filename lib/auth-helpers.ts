@@ -1,39 +1,24 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminToken } from "@/lib/admin-token";
 
-// Admin token'dan hospital ID'yi çıkar
-export function getHospitalIdFromAdminToken(request: NextRequest): string | null {
-  try {
-    const token = request.cookies.get("admin_token")?.value;
-    if (!token) return null;
+// Admin token doğrulama (signed)
+export function getAdminTokenPayload(request: NextRequest): {
+  email: string | null;
+  hospitalId: string | null;
+} {
+  const token = request.cookies.get("admin_token")?.value;
+  if (!token) return { email: null, hospitalId: null };
 
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    
-    // Format: email:hospitalId:timestamp
-    if (parts.length !== 3) return null;
-    
-    return parts[1]; // hospitalId
-  } catch {
-    return null;
+  const verified = verifyAdminToken(token);
+  if (!verified.valid || !verified.payload) {
+    return { email: null, hospitalId: null };
   }
-}
 
-// Admin email'ini token'dan al
-export function getAdminEmailFromToken(request: NextRequest): string | null {
-  try {
-    const token = request.cookies.get("admin_token")?.value;
-    if (!token) return null;
-
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    
-    if (parts.length !== 3) return null;
-    
-    return parts[0]; // email
-  } catch {
-    return null;
-  }
+  return {
+    email: verified.payload.email,
+    hospitalId: verified.payload.hospitalId,
+  };
 }
 
 // Admin authentication kontrolü
@@ -42,8 +27,7 @@ export async function verifyAdminAccess(request: NextRequest): Promise<{
   hospitalId: string | null;
   email: string | null;
 }> {
-  const hospitalId = getHospitalIdFromAdminToken(request);
-  const email = getAdminEmailFromToken(request);
+  const { hospitalId, email } = getAdminTokenPayload(request);
 
   if (!hospitalId || !email) {
     return { isValid: false, hospitalId: null, email: null };

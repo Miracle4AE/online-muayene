@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -18,27 +18,15 @@ const createAppointmentSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Header'dan user ID ve role'ü al
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "PATIENT") {
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim. Lütfen hasta olarak giriş yapın." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const patientId = userId;
+    const patientId = auth.userId;
 
     // Hasta kontrolü
     const patient = await prisma.user.findUnique({

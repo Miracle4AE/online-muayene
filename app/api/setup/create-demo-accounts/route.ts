@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { encryptTcKimlik, hashTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,13 +34,13 @@ export async function POST(request: NextRequest) {
     // TC Kimlik No çakışması kontrolü
     let doctorTcNo = '12345678901';
     const existingTcDoctor = await prisma.doctorProfile.findUnique({
-      where: { tcKimlikNo: '12345678901' },
+      where: { tcKimlikNoHash: hashTcKimlik('12345678901') },
     });
 
     if (existingTcDoctor) {
       doctorTcNo = '12345678902';
       const existingTcDoctor2 = await prisma.doctorProfile.findUnique({
-        where: { tcKimlikNo: '12345678902' },
+        where: { tcKimlikNoHash: hashTcKimlik('12345678902') },
       });
       if (existingTcDoctor2) {
         doctorTcNo = '12345678903';
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
           create: {
             specialization: 'Aile Hekimliği',
             licenseNumber: 'DEMO123456',
-            tcKimlikNo: doctorTcNo,
+            tcKimlikNo: encryptTcKimlik(doctorTcNo),
+            tcKimlikNoHash: hashTcKimlik(doctorTcNo),
             bio: 'Bu bir demo doktor hesabıdır. Telif başvurusu kontrolü için oluşturulmuştur.',
             experience: 10,
             hospital: 'Demo Hastanesi',
@@ -94,13 +96,13 @@ export async function POST(request: NextRequest) {
     // TC Kimlik No çakışması kontrolü
     let patientTcNo = '98765432109';
     const existingTcPatient = await prisma.patientProfile.findUnique({
-      where: { tcKimlikNo: '98765432109' },
+      where: { tcKimlikNoHash: hashTcKimlik('98765432109') },
     });
 
     if (existingTcPatient) {
       patientTcNo = '98765432108';
       const existingTcPatient2 = await prisma.patientProfile.findUnique({
-        where: { tcKimlikNo: '98765432108' },
+        where: { tcKimlikNoHash: hashTcKimlik('98765432108') },
       });
       if (existingTcPatient2) {
         patientTcNo = '98765432107';
@@ -118,7 +120,8 @@ export async function POST(request: NextRequest) {
         phone: '05559876543',
         patientProfile: {
           create: {
-            tcKimlikNo: patientTcNo,
+            tcKimlikNo: encryptTcKimlik(patientTcNo),
+            tcKimlikNoHash: hashTcKimlik(patientTcNo),
             dateOfBirth: new Date('1990-01-01'),
             gender: 'Erkek',
             address: 'Demo Adres, Demo Mahalle, İstanbul',

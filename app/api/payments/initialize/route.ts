@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializePayment } from "@/lib/payment";
 import { prisma } from "@/lib/prisma";
+import { decryptTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -68,7 +69,9 @@ export async function POST(request: NextRequest) {
         surname: appointment.patient.name.split(" ").slice(1).join(" ") || "Kullanıcı",
         email: appointment.patient.email,
         phone: appointment.patient.phone || "05551234567",
-        identityNumber: appointment.patient.patientProfile?.tcKimlikNo || "11111111111",
+        identityNumber: appointment.patient.patientProfile?.tcKimlikNo
+          ? decryptTcKimlik(appointment.patient.patientProfile.tcKimlikNo)
+          : "11111111111",
         registrationAddress: appointment.patient.patientProfile?.address || "Adres bilgisi yok",
         city: "Bursa",
         country: "Türkiye",

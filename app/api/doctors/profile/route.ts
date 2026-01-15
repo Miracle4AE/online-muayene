@@ -2,33 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { doctorProfileUpdateSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { requireAuth } from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Header'dan user ID ve role'ü al
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Kullanıcı ID bulunamadı. Lütfen giriş yapın." },
-        { status: 401 }
-      );
-    }
-
-    if (userRole !== "DOCTOR") {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim. Sadece doktorlar bu sayfaya erişebilir." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
     // Önce doktoru bul
     const doctor = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       include: {
         doctorProfile: true,
       },
@@ -115,20 +106,11 @@ export async function PUT(request: NextRequest) {
 
   try {
     // Header'dan user ID ve role'ü al
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Kullanıcı ID bulunamadı. Lütfen giriş yapın." },
-        { status: 401 }
-      );
-    }
-
-    if (userRole !== "DOCTOR") {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim. Sadece doktorlar bu sayfaya erişebilir." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
@@ -196,7 +178,7 @@ export async function PUT(request: NextRequest) {
 
     // Doktor profilinin var olduğunu kontrol et
     const existingProfile = await prisma.doctorProfile.findUnique({
-      where: { userId: userId },
+      where: { userId: auth.userId },
     });
 
     if (!existingProfile) {
@@ -207,7 +189,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const updatedProfile = await prisma.doctorProfile.update({
-      where: { userId: userId },
+      where: { userId: auth.userId },
       data: updateData,
       include: {
         user: {

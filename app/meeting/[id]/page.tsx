@@ -91,15 +91,71 @@ export default function MeetingPage() {
     }
   }, [appointmentId, session]);
 
+  // Upload recording to server
+  const uploadRecording = useCallback(
+    async (blob: Blob) => {
+      if (!appointmentId) return;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", blob, `recording-${appointmentId}-${Date.now()}.webm`);
+        formData.append("appointmentId", appointmentId);
+        formData.append("doctorId", doctorId || "");
+        formData.append("patientId", patientId || "");
+
+        const response = await fetch("/api/admin/video-recordings/upload-recording", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          console.log("Kayıt başarıyla yüklendi");
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+      }
+    },
+    [appointmentId, doctorId, patientId]
+  );
+
+  // Start recording
+  const startRecording = useCallback(
+    (stream: MediaStream) => {
+      try {
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: "video/webm;codecs=vp8,opus",
+        });
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+          await uploadRecording(blob);
+        };
+
+        mediaRecorder.start(1000); // Her 1 saniyede bir chunk al
+        mediaRecorderRef.current = mediaRecorder;
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Recording start error:", err);
+      }
+    },
+    [uploadRecording]
+  );
+
   // Initialize local media
   useEffect(() => {
     const initializeMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             width: { ideal: 1280 },
             height: { ideal: 720 },
-            facingMode: "user"
+            facingMode: "user",
           },
           audio: {
             echoCancellation: true,
@@ -107,7 +163,7 @@ export default function MeetingPage() {
             autoGainControl: true,
           },
         });
-        
+
         localStreamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
@@ -123,65 +179,18 @@ export default function MeetingPage() {
 
     initializeMedia();
 
+    const peerConnection = peerConnectionRef.current;
+
     return () => {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
+      const localStream = localStreamRef.current;
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
       }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
+      if (peerConnection) {
+        peerConnection.close();
       }
     };
-  }, []);
-
-  // Start recording
-  const startRecording = (stream: MediaStream) => {
-    try {
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus'
-      });
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
-        await uploadRecording(blob);
-      };
-
-      mediaRecorder.start(1000); // Her 1 saniyede bir chunk al
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Recording start error:", err);
-    }
-  };
-
-  // Upload recording to server
-  const uploadRecording = async (blob: Blob) => {
-    if (!appointmentId) return;
-
-    try {
-      const formData = new FormData();
-      formData.append("file", blob, `recording-${appointmentId}-${Date.now()}.webm`);
-      formData.append("appointmentId", appointmentId);
-      formData.append("doctorId", doctorId || "");
-      formData.append("patientId", patientId || "");
-
-      const response = await fetch("/api/admin/video-recordings/upload-recording", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        console.log("Kayıt başarıyla yüklendi");
-      }
-    } catch (err) {
-      console.error("Upload error:", err);
-    }
-  };
+  }, [startRecording]);
 
   // Toggle mute
   const toggleMute = () => {

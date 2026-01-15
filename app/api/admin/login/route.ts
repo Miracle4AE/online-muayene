@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
+import { signAdminToken } from "@/lib/admin-token";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,11 +47,9 @@ export async function POST(request: NextRequest) {
     const emailIndex = adminEmails.indexOf(validatedData.email);
     const expectedPassword = adminPasswords[emailIndex] || adminPasswords[0];
     
-    // Debug için (development)
     if (process.env.NODE_ENV === "development") {
-      console.log("Expected password:", expectedPassword);
-      console.log("Received password:", validatedData.password);
-      console.log("Expected starts with $2a$:", expectedPassword.startsWith("$2a$"));
+      console.log("Admin login attempt for:", validatedData.email);
+      console.log("Expected password hash:", expectedPassword.startsWith("$2a$"));
     }
     
     // Şifre hash'lenmiş olabilir veya düz metin olabilir
@@ -92,12 +91,9 @@ export async function POST(request: NextRequest) {
 
     const expectedHospital = adminHospitals[emailIndex] || adminHospitals[0];
     
-    // Debug için (geliştirme ortamında)
     if (process.env.NODE_ENV === "development") {
       console.log("Expected hospital:", expectedHospital);
       console.log("Received hospital:", validatedData.hospital);
-      console.log("Expected password:", expectedPassword);
-      console.log("Received password:", validatedData.password);
     }
     
     // Hastane adı karşılaştırması (normalize edilmiş)
@@ -123,8 +119,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Başarılı giriş - session token oluştur (email, hospital ID ve zaman damgası ile)
-    const token = Buffer.from(`${validatedData.email}:${hospital.id}:${Date.now()}`).toString("base64");
+    // Başarılı giriş - signed admin token oluştur
+    const token = signAdminToken({
+      email: validatedData.email,
+      hospitalId: hospital.id,
+    });
 
     // Cookie'ye token kaydet
     const response = NextResponse.json({

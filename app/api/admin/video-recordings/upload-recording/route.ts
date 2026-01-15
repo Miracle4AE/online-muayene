@@ -1,72 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/api-auth";
+import { validateFormDataFile } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // Admin veya doktor authentication kontrolü
-    const adminToken = request.cookies.get("admin_token");
-    const sessionToken = request.cookies.get("next-auth.session-token") || request.cookies.get("__Secure-next-auth.session-token");
-    
-    // Admin veya doktor authentication kontrolü
-    let isAuthenticated = false;
-    let userRole = null;
-    let adminInfo: { email: string; hospital: string } | null = null;
-    
-    if (adminToken) {
-      // Admin authentication kontrolü
-      const { isValid, hospitalId, email } = await verifyAdminAccess(request);
-      if (isValid && hospitalId && email) {
-        const hospital = await prisma.hospital.findUnique({
-          where: { id: hospitalId },
-        });
-        if (hospital) {
-          isAuthenticated = true;
-          userRole = "ADMIN";
-          adminInfo = {
-            email,
-            hospital: hospital.name,
-          };
-        }
-      }
-    } else if (sessionToken) {
-      // NextAuth session kontrolü (doktor için)
-      try {
-        const { getToken } = await import("next-auth/jwt");
-        const token = await getToken({ 
-          req: request,
-          secret: process.env.NEXTAUTH_SECRET 
-        });
-        if (token && (token.role === "DOCTOR" || token.role === "ADMIN")) {
-          isAuthenticated = true;
-          userRole = token.role;
-        }
-      } catch (error) {
-        console.error("Session token kontrolü hatası:", error);
-      }
-    }
-    
-    if (!isAuthenticated) {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 401 }
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
       );
+    }
+
+    let userRole: "ADMIN" | "DOCTOR" | null = null;
+    let adminInfo: { email: string; hospital: string } | null = null;
+    let doctorId: string | null = null;
+
+    const adminAccess = await verifyAdminAccess(request);
+    if (adminAccess.isValid && adminAccess.hospitalId && adminAccess.email) {
+      const hospital = await prisma.hospital.findUnique({
+        where: { id: adminAccess.hospitalId },
+      });
+      if (!hospital) {
+        return NextResponse.json(
+          { error: "Hastane bulunamadı" },
+          { status: 404 }
+        );
+      }
+      userRole = "ADMIN";
+      adminInfo = {
+        email: adminAccess.email,
+        hospital: hospital.name,
+      };
+    } else {
+      const auth = await requireAuth(request, "DOCTOR");
+      if (!auth.ok) {
+        return NextResponse.json(
+          { error: auth.error },
+          { status: auth.status }
+        );
+      }
+      userRole = "DOCTOR";
+      doctorId = auth.userId;
     }
 
     // Get form data
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const fileValidation = await validateFormDataFile(formData, "file", {
+      allowedTypes: [
+        "video/mp4",
+        "video/webm",
+        "video/ogg",
+        "video/quicktime",
+        "video/x-msvideo",
+      ],
+      maxSize: 250 * 1024 * 1024,
+      required: true,
+    });
+    const file = fileValidation.file;
     const appointmentId = formData.get("appointmentId") as string;
 
-    if (!file || !appointmentId) {
+    if (!file || !fileValidation.valid || !appointmentId) {
       return NextResponse.json(
-        { error: "Dosya ve randevu ID gerekli" },
+        { error: fileValidation.error || "Dosya ve randevu ID gerekli" },
         { status: 400 }
       );
     }
@@ -96,24 +99,10 @@ export async function POST(request: NextRequest) {
 
     // Doktor ise, randevunun kendi randevusu olduğunu kontrol et
     if (userRole === "DOCTOR") {
-      try {
-        const { getToken } = await import("next-auth/jwt");
-        const token = await getToken({ 
-          req: request,
-          secret: process.env.NEXTAUTH_SECRET 
-        });
-        
-        if (token?.id !== appointment.doctorId) {
-          return NextResponse.json(
-            { error: "Bu randevuya erişim yetkiniz yok" },
-            { status: 403 }
-          );
-        }
-      } catch (error) {
-        console.error("Doktor authentication kontrolü hatası:", error);
+      if (!doctorId || doctorId !== appointment.doctorId) {
         return NextResponse.json(
-          { error: "Kimlik doğrulama hatası" },
-          { status: 401 }
+          { error: "Bu randevuya erişim yetkiniz yok" },
+          { status: 403 }
         );
       }
     } else if (userRole === "ADMIN" && adminInfo) {
@@ -129,25 +118,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create directory if it doesn't exist
-    const uploadDir = join(process.cwd(), "public", "video-recordings");
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const fileExtension = "webm";
-    const fileName = `recording-${appointmentId}-${timestamp}.${fileExtension}`;
-    const filePath = join(uploadDir, fileName);
-
-    // Save file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-
-    // Update or create video recording
-    const fileUrl = `/video-recordings/${fileName}`;
+    const stored = await storeFile(file, "video-recordings", `recording-${appointmentId}`);
+    const fileUrl = stored.url;
     
     // Mevcut kaydı bul veya yeni oluştur
     const existingRecording = await prisma.videoRecording.findFirst({

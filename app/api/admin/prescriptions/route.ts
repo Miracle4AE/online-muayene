@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
+import { hashTcKimlik, decryptTcKimlik, maskTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -53,9 +54,16 @@ export async function GET(request: NextRequest) {
 
     // Hasta T.C. Kimlik No ile arama
     if (patientTcKimlikNo) {
+      const tcHash = hashTcKimlik(patientTcKimlikNo);
+      if (!tcHash) {
+        return NextResponse.json(
+          { error: "T.C. Kimlik No 11 haneli olmalıdır" },
+          { status: 400 }
+        );
+      }
       where.patient = {
         patientProfile: {
-          tcKimlikNo: patientTcKimlikNo,
+          tcKimlikNoHash: tcHash,
         },
       };
     }
@@ -111,7 +119,24 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ prescriptions });
+    const sanitizedPrescriptions = prescriptions.map((prescription) => ({
+      ...prescription,
+      patient: prescription.patient
+        ? {
+            ...prescription.patient,
+            patientProfile: prescription.patient.patientProfile
+              ? {
+                  ...prescription.patient.patientProfile,
+                  tcKimlikNo: prescription.patient.patientProfile.tcKimlikNo
+                    ? maskTcKimlik(decryptTcKimlik(prescription.patient.patientProfile.tcKimlikNo))
+                    : null,
+                }
+              : null,
+          }
+        : null,
+    }));
+
+    return NextResponse.json({ prescriptions: sanitizedPrescriptions });
   } catch (error) {
     console.error("Error fetching prescriptions:", error);
     return NextResponse.json(

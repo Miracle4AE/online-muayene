@@ -1,47 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyAdminAccess } from "@/lib/auth-helpers";
 
 // Build sırasında statik olarak analiz edilmesini engelle
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
-function isAdmin(request: NextRequest): boolean {
-  const adminToken = request.cookies.get("admin_token");
-  if (!adminToken) return false;
-  
-  try {
-    const decoded = Buffer.from(adminToken.value, "base64").toString("utf-8");
-    const [email] = decoded.split(":");
-    const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
-    return adminEmails.includes(email);
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    if (!isAdmin(request)) {
+    const adminAccess = await verifyAdminAccess(request);
+    if (!adminAccess.isValid || !adminAccess.hospitalId || !adminAccess.email) {
       return NextResponse.json(
         { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
         { status: 403 }
       );
     }
 
-    const adminToken = request.cookies.get("admin_token");
-    if (!adminToken) {
+    const hospital = await prisma.hospital.findUnique({
+      where: { id: adminAccess.hospitalId },
+    });
+    if (!hospital) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
-        { status: 403 }
+        { error: "Hastane bulunamadı" },
+        { status: 404 }
       );
     }
-
-    const decoded = Buffer.from(adminToken.value, "base64").toString("utf-8");
-    const [email] = decoded.split(":");
-    const userId = email; // Email'i userId olarak kullan
+    const userId = adminAccess.email;
 
     const body = await request.json();
     const { rejectionReason } = body;
@@ -66,6 +53,13 @@ export async function POST(
       return NextResponse.json(
         { error: "Doktor profili bulunamadı" },
         { status: 404 }
+      );
+    }
+
+    if (doctorProfile.hospital && doctorProfile.hospital !== hospital.name) {
+      return NextResponse.json(
+        { error: "Bu doktor bu hastaneye bağlı değil" },
+        { status: 403 }
       );
     }
 

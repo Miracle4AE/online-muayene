@@ -1,33 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
+import { decryptTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Header'dan user ID ve role'ü al (primary method)
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
@@ -141,7 +130,9 @@ export async function GET(request: NextRequest) {
         age: age,
         dateOfBirth: patient.patientProfile?.dateOfBirth,
         gender: patient.patientProfile?.gender,
-        tcKimlikNo: patient.patientProfile?.tcKimlikNo,
+        tcKimlikNo: patient.patientProfile?.tcKimlikNo
+          ? decryptTcKimlik(patient.patientProfile.tcKimlikNo)
+          : null,
         bloodType: patient.patientProfile?.bloodType,
         allergies: patient.patientProfile?.allergies,
         chronicDiseases: patient.patientProfile?.chronicDiseases,

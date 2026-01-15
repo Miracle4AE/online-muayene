@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
+import { validateFormDataFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -10,26 +13,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
     
-    // Header'dan user ID ve role'ü al
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "PATIENT") {
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
@@ -56,7 +55,7 @@ export async function POST(
     }
 
     // Randevunun bu hastaya ait olduğunu kontrol et
-    if (appointment.patientId !== userId) {
+    if (appointment.patientId !== auth.userId) {
       return NextResponse.json(
         { error: "Bu randevu size ait değil" },
         { status: 403 }
@@ -77,37 +76,27 @@ export async function POST(
     const description = formData.get("description") as string;
     const documentDate = formData.get("documentDate") as string;
 
-    if (!file || !title || !documentType) {
+    if (!title || !documentType) {
       return NextResponse.json(
         { error: "Dosya, başlık ve belge tipi zorunludur" },
         { status: 400 }
       );
     }
+    const fileValidation = await validateFormDataFile(formData, "file", {
+      allowedTypes: ALLOWED_FILE_TYPES.medical,
+      maxSize: MAX_FILE_SIZES.medical,
+      required: true,
+    });
 
-    // Dosya tipi kontrolü
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
+    if (!fileValidation.valid || !fileValidation.file) {
       return NextResponse.json(
-        { error: "Geçersiz dosya tipi. Sadece PDF, JPG, JPEG ve PNG dosyaları kabul edilir." },
+        { error: fileValidation.error || "Dosya doğrulaması başarısız" },
         { status: 400 }
       );
     }
 
-    // Dosya boyutu kontrolü (10MB max)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "Dosya boyutu 10MB'dan küçük olmalıdır" },
-        { status: 400 }
-      );
-    }
-
-    // Dosyayı kaydet (veritabanına base64 data URL olarak). Not: Bu çözüm,
-    // Vercel gibi read-only ortamlarda dosya sistemi yazma hatalarını engeller.
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString("base64");
-    const fileUrl = `data:${file.type};base64,${base64}`;
+    const stored = await storeFile(fileValidation.file, "documents", "patient-report");
+    const fileUrl = stored.url;
 
     // Belgeyi veritabanına kaydet
     const document = await prisma.patientDocument.create({
@@ -117,7 +106,7 @@ export async function POST(
         title,
         documentType,
         fileUrl,
-        uploadedBy: userId,
+        uploadedBy: auth.userId,
         description: description || null,
         documentDate: documentDate ? new Date(documentDate) : null,
         aiAnalyzed: false,

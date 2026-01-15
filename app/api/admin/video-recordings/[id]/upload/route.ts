@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
+import { validateFormDataFile } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,6 +13,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
     const recordingId = resolvedParams.id;
@@ -84,49 +92,27 @@ export async function POST(
 
     // Get form data
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const fileValidation = await validateFormDataFile(formData, "file", {
+      allowedTypes: [
+        "video/mp4",
+        "video/webm",
+        "video/ogg",
+        "video/quicktime",
+        "video/x-msvideo",
+      ],
+      maxSize: 250 * 1024 * 1024,
+      required: true,
+    });
+    const file = fileValidation.file;
 
-    if (!file) {
+    if (!file || !fileValidation.valid) {
       return NextResponse.json(
-        { error: "Dosya bulunamadı" },
+        { error: fileValidation.error || "Dosya bulunamadı" },
         { status: 400 }
       );
     }
-
-    // Validate file type (video files)
-    const allowedTypes = [
-      "video/mp4",
-      "video/webm",
-      "video/ogg",
-      "video/quicktime",
-      "video/x-msvideo",
-    ];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Geçersiz dosya tipi. Sadece video dosyaları kabul edilir." },
-        { status: 400 }
-      );
-    }
-
-    // Create directory if it doesn't exist
-    const uploadDir = join(process.cwd(), "public", "video-recordings");
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const fileExtension = file.name.split(".").pop();
-    const fileName = `recording-${recordingId}-${timestamp}.${fileExtension}`;
-    const filePath = join(uploadDir, fileName);
-
-    // Save file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-
-    // Update recording with file URL
-    const fileUrl = `/video-recordings/${fileName}`;
+    const stored = await storeFile(file, "video-recordings", `recording-${recordingId}`);
+    const fileUrl = stored.url;
     await prisma.videoRecording.update({
       where: { id: recordingId },
       data: {

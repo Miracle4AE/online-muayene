@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth";
+import { decryptTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,20 +14,17 @@ export async function GET(
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
     
-    // Header'dan user bilgilerini al
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       include: {
         doctorProfile: true,
       },
@@ -105,7 +104,7 @@ export async function GET(
 
     // Doktorun bu hastayla randevusu var mı kontrol et
     const hasAppointmentWithThisDoctor = patient.patientAppointments.some(
-      apt => apt.doctorId === userId
+      apt => apt.doctorId === auth.userId
     );
 
     // İzin durumunu belirle
@@ -136,6 +135,11 @@ export async function GET(
 
     // Hassas bilgileri temizle
     const { password, ...patientData } = patient;
+    if (patientData.patientProfile?.tcKimlikNo) {
+      patientData.patientProfile.tcKimlikNo = decryptTcKimlik(
+        patientData.patientProfile.tcKimlikNo
+      );
+    }
 
     // Randevuları filtrele - hangi randevuların bilgilerini gösterebileceğini belirle
     patientData.patientAppointments = patient.patientAppointments.filter(apt => {
@@ -238,7 +242,7 @@ export async function GET(
         }
 
         // Kendi doktoru ise, göster
-        if (history.doctorId === userId) {
+        if (history.doctorId === auth.userId) {
           return true;
         }
 

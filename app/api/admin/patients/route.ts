@@ -1,31 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyAdminAccess } from "@/lib/auth-helpers";
+import { hashTcKimlik, decryptTcKimlik, maskTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("=== GET /api/admin/patients START ===");
+    if (process.env.NODE_ENV === "development") {
+      console.log("=== GET /api/admin/patients START ===");
+    }
     
     const { isValid, hospitalId } = await verifyAdminAccess(request);
     
     if (!isValid || !hospitalId) {
-      console.log("Admin access denied");
+      if (process.env.NODE_ENV === "development") {
+        console.log("Admin access denied");
+      }
       return NextResponse.json(
         { error: "Yetkisiz erişim. Lütfen admin girişi yapın." },
         { status: 403 }
       );
     }
-    console.log("Hospital ID:", hospitalId);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Hospital ID:", hospitalId);
+    }
 
     const doctorId = request.nextUrl.searchParams.get("doctorId");
     const doctorName = request.nextUrl.searchParams.get("doctorName")?.trim() || "";
     const patientTcKimlikNo = request.nextUrl.searchParams.get("patientTcKimlikNo")?.trim() || "";
     const patientName = request.nextUrl.searchParams.get("patientName")?.trim() || "";
 
-    console.log("Search params:", { doctorId, doctorName, patientTcKimlikNo, patientName });
+    if (process.env.NODE_ENV === "development") {
+      console.log("Search params:", { doctorId, doctorName, patientTcKimlikNo, patientName });
+    }
 
     // Hastane doktorlarını getir
     const doctorWhere: any = {
@@ -44,7 +53,9 @@ export async function GET(request: NextRequest) {
       doctorWhere.name = { contains: doctorName };
     }
 
-    console.log("Fetching doctors with where:", JSON.stringify(doctorWhere, null, 2));
+    if (process.env.NODE_ENV === "development") {
+      console.log("Fetching doctors with where:", JSON.stringify(doctorWhere, null, 2));
+    }
     
     const hospitalDoctors = await prisma.user.findMany({
       where: doctorWhere,
@@ -52,21 +63,42 @@ export async function GET(request: NextRequest) {
     });
 
     const doctorIds = hospitalDoctors.map((d) => d.id);
-    console.log("Found doctors:", doctorIds);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Found doctors:", doctorIds);
+    }
 
     if (doctorIds.length === 0) {
-      console.log("No doctors found, returning empty array");
+      if (process.env.NODE_ENV === "development") {
+        console.log("No doctors found, returning empty array");
+      }
       return NextResponse.json({ patients: [] });
     }
 
     // Randevuları getir
-    console.log("Fetching appointments for doctors:", doctorIds);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Fetching appointments for doctors:", doctorIds);
+    }
+
+    const appointmentWhere: any = {
+      doctorId: { in: doctorIds },
+      status: { in: ["CONFIRMED", "COMPLETED"] },
+    };
+
+    if (patientTcKimlikNo) {
+      const tcHash = hashTcKimlik(patientTcKimlikNo);
+      if (!tcHash) {
+        return NextResponse.json(
+          { error: "T.C. Kimlik No 11 haneli olmalıdır" },
+          { status: 400 }
+        );
+      }
+      appointmentWhere.patient = {
+        patientProfile: { tcKimlikNoHash: tcHash },
+      };
+    }
     
     const appointments = await prisma.appointment.findMany({
-      where: {
-        doctorId: { in: doctorIds },
-        status: { in: ["CONFIRMED", "COMPLETED"] },
-      },
+      where: appointmentWhere,
       include: {
         patient: {
           include: {
@@ -111,16 +143,17 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log(`Found ${appointments.length} appointments`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Found ${appointments.length} appointments`);
+    }
 
     // JavaScript tarafında filtreleme
     let filtered = appointments;
 
     if (patientTcKimlikNo) {
-      filtered = filtered.filter(
-        (apt) => apt.patient?.patientProfile?.tcKimlikNo === patientTcKimlikNo
-      );
-      console.log(`After TC filter: ${filtered.length} appointments`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`After TC filter: ${filtered.length} appointments`);
+      }
     }
 
     if (patientName) {
@@ -128,7 +161,9 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter(
         (apt) => apt.patient?.name?.toLowerCase().includes(searchName)
       );
-      console.log(`After name filter: ${filtered.length} appointments`);
+      if (process.env.NODE_ENV === "development") {
+        console.log(`After name filter: ${filtered.length} appointments`);
+      }
     }
 
     // Hastaları unique hale getir
@@ -136,7 +171,9 @@ export async function GET(request: NextRequest) {
 
     for (const apt of filtered) {
       if (!apt.patient || !apt.doctor) {
-        console.warn("Skipping appointment with missing patient or doctor:", apt.id);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Skipping appointment with missing patient or doctor:", apt.id);
+        }
         continue;
       }
 
@@ -148,7 +185,14 @@ export async function GET(request: NextRequest) {
           name: apt.patient.name || "",
           email: apt.patient.email || "",
           phone: apt.patient.phone || null,
-          profile: apt.patient.patientProfile || null,
+          profile: apt.patient.patientProfile
+            ? {
+                ...apt.patient.patientProfile,
+                tcKimlikNo: apt.patient.patientProfile.tcKimlikNo
+                  ? maskTcKimlik(decryptTcKimlik(apt.patient.patientProfile.tcKimlikNo))
+                  : null,
+              }
+            : null,
           appointments: [],
           diagnoses: [],
           lastAppointmentDate: apt.appointmentDate,
@@ -197,11 +241,15 @@ export async function GET(request: NextRequest) {
           patient.lastAppointmentDate = apt.appointmentDate;
         }
       } catch (dateError) {
-        console.error("Error processing date for appointment:", apt.id, dateError);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error processing date for appointment:", apt.id, dateError);
+        }
       }
     }
 
-    console.log(`Processed ${patientMap.size} unique patients`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`Processed ${patientMap.size} unique patients`);
+    }
 
     const patients = Array.from(patientMap.values()).sort((a, b) => {
       try {
@@ -210,12 +258,16 @@ export async function GET(request: NextRequest) {
         if (isNaN(dateA) || isNaN(dateB)) return 0;
         return dateB - dateA;
       } catch (sortError) {
-        console.error("Error sorting patients:", sortError);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error sorting patients:", sortError);
+        }
         return 0;
       }
     });
 
-    console.log("=== GET /api/admin/patients SUCCESS ===");
+    if (process.env.NODE_ENV === "development") {
+      console.log("=== GET /api/admin/patients SUCCESS ===");
+    }
     return NextResponse.json({ patients });
   } catch (error: any) {
     console.error("=== GET /api/admin/patients ERROR ===");

@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.forgotPassword);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla deneme. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { token, password } = body;
 

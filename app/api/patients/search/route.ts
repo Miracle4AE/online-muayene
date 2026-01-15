@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth";
+import { hashTcKimlik, decryptTcKimlik, maskTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -7,19 +9,17 @@ export const runtime = 'nodejs';
 export async function GET(request: NextRequest) {
   try {
     // Header'dan user bilgilerini al
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       include: {
         doctorProfile: true,
       },
@@ -95,11 +95,16 @@ export async function GET(request: NextRequest) {
 
     // T.C. Kimlik No ile arama
     if (tcKimlikNo) {
-      // patientProfile ile arama yaparken, önce patientProfile'i include etmemiz gerekiyor
-      // Alternatif olarak, patientProfile üzerinden arama yapabiliriz
+      const tcHash = hashTcKimlik(tcKimlikNo);
+      if (!tcHash) {
+        return NextResponse.json(
+          { error: "T.C. Kimlik No 11 haneli olmalıdır" },
+          { status: 400 }
+        );
+      }
       whereClause.patientProfile = {
-        tcKimlikNo: {
-          equals: tcKimlikNo,
+        tcKimlikNoHash: {
+          equals: tcHash,
         },
       };
     }
@@ -147,6 +152,14 @@ export async function GET(request: NextRequest) {
         ...patient,
         lastAppointment: patient.patientAppointments[0] || null,
         patientAppointments: undefined,
+        patientProfile: patient.patientProfile
+          ? {
+              ...patient.patientProfile,
+              tcKimlikNo: patient.patientProfile.tcKimlikNo
+                ? maskTcKimlik(decryptTcKimlik(patient.patientProfile.tcKimlikNo))
+                : null,
+            }
+          : null,
       })),
     });
   } catch (error) {

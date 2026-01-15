@@ -2,31 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { patientProfileUpdateSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { requireAuth } from "@/lib/api-auth";
+import { decryptTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Kullanıcı ID bulunamadı. Lütfen giriş yapın." },
-        { status: 401 }
-      );
-    }
-
-    if (userRole !== "PATIENT") {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim. Sadece hastalar bu sayfaya erişebilir." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: auth.userId },
       include: {
         patientProfile: true,
       },
@@ -41,9 +34,18 @@ export async function GET(request: NextRequest) {
 
     const { password, ...userData } = user;
 
+    const decryptedProfile = user.patientProfile
+      ? {
+          ...user.patientProfile,
+          tcKimlikNo: user.patientProfile.tcKimlikNo
+            ? decryptTcKimlik(user.patientProfile.tcKimlikNo)
+            : null,
+        }
+      : null;
+
     return NextResponse.json({
       user: userData,
-      profile: user.patientProfile,
+      profile: decryptedProfile,
     });
   } catch (error) {
     console.error("Error fetching patient profile:", error);
@@ -71,20 +73,11 @@ export async function PUT(request: NextRequest) {
   } = {};
 
   try {
-    const userId = request.headers.get("x-user-id");
-    const userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Kullanıcı ID bulunamadı. Lütfen giriş yapın." },
-        { status: 401 }
-      );
-    }
-
-    if (userRole !== "PATIENT") {
-      return NextResponse.json(
-        { error: "Yetkisiz erişim. Sadece hastalar bu sayfaya erişebilir." },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
@@ -179,7 +172,7 @@ export async function PUT(request: NextRequest) {
 
     // Hasta profilinin var olduğunu kontrol et
     const existingProfile = await prisma.patientProfile.findUnique({
-      where: { userId: userId },
+      where: { userId: auth.userId },
     });
 
     if (!existingProfile) {
@@ -192,7 +185,7 @@ export async function PUT(request: NextRequest) {
     // User tablosunu güncelle (phone)
     if (updateData.phone !== undefined) {
       await prisma.user.update({
-        where: { id: userId },
+        where: { id: auth.userId },
         data: { phone: updateData.phone },
       });
       delete updateData.phone;
@@ -200,7 +193,7 @@ export async function PUT(request: NextRequest) {
 
     // PatientProfile'i güncelle
     const updatedProfile = await prisma.patientProfile.update({
-      where: { userId: userId },
+      where: { userId: auth.userId },
       data: updateData,
       include: {
         user: {

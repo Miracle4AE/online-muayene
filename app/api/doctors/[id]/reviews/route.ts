@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 import { doctorReviewSchema } from "@/lib/validations";
 import { ZodError } from "zod";
+import { requireAuth } from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -66,12 +66,8 @@ export async function POST(
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
     
-    const token = await getToken({ 
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET 
-    });
-
-    if (!token || token.role !== "PATIENT") {
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
       return NextResponse.json(
         { error: "Sadece hastalar yorum yapabilir" },
         { status: 401 }
@@ -102,7 +98,7 @@ export async function POST(
       where: {
         doctorId_patientId: {
           doctorId: doctor.doctorProfile.id,
-          patientId: token.id as string,
+          patientId: auth.userId,
         },
       },
     });
@@ -118,7 +114,7 @@ export async function POST(
     const review = await prisma.doctorReview.create({
       data: {
         doctorId: doctor.doctorProfile.id,
-        patientId: token.id as string,
+        patientId: auth.userId,
         rating: validatedData.rating,
         comment: validatedData.comment,
       },

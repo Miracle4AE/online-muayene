@@ -96,7 +96,8 @@ model DoctorProfile {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialization     String
   licenseNumber      String    @unique
-  tcKimlikNo         String?   @unique // T.C. Kimlik Numarası
+  tcKimlikNo         String?   // T.C. Kimlik Numarası (şifreli)
+  tcKimlikNoHash     String?   @unique // T.C. Kimlik Numarası hash (arama/unique)
   bio                String?
   experience         Int? // Yıl cinsinden deneyim
   photoUrl           String? // Doktor fotoğrafı URL'i
@@ -127,7 +128,8 @@ model PatientProfile {
   id               String    @id @default(cuid())
   userId           String    @unique
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tcKimlikNo       String    @unique // T.C. Kimlik Numarası
+  tcKimlikNo       String    // T.C. Kimlik Numarası (şifreli)
+  tcKimlikNoHash   String    @unique // T.C. Kimlik Numarası hash (arama/unique)
   dateOfBirth      DateTime?
   gender           String?
   address          String?

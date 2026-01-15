@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
 import { z } from "zod";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { requireAuth } from "@/lib/api-auth";
+import { validateUploadedFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,26 +17,23 @@ const sendMessageSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Authentication kontrolü
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "PATIENT") {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim. Lütfen hasta olarak giriş yapın." },
-        { status: 403 }
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
       );
     }
 
-    const patientId = userId;
+    const auth = await requireAuth(request, "PATIENT");
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error },
+        { status: auth.status }
+      );
+    }
+
+    const patientId = auth.userId;
 
     // FormData veya JSON kontrolü
     const contentType = request.headers.get("content-type") || "";
@@ -54,56 +51,30 @@ export async function POST(request: NextRequest) {
 
       // Dosyaları yükle
       if (files && files.length > 0) {
-        const uploadsDir = join(process.cwd(), "public", "message-attachments");
-        if (!existsSync(uploadsDir)) {
-          mkdirSync(uploadsDir, { recursive: true });
-        }
-
         for (const file of files) {
           if (!file || file.size === 0) continue;
+          const validation = await validateUploadedFile(file, {
+            allowedTypes: [
+              ...ALLOWED_FILE_TYPES.documents,
+              ...ALLOWED_FILE_TYPES.images,
+              "application/msword",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.ms-excel",
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ],
+            maxSize: MAX_FILE_SIZES.document,
+            checkMagicBytes: true,
+          });
 
-          // Dosya tipi kontrolü
-          const allowedTypes = [
-            "application/pdf",
-            "image/jpeg",
-            "image/jpg",
-            "image/png",
-            "image/gif",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          ];
-          
-          if (!allowedTypes.includes(file.type)) {
+          if (!validation.valid) {
             return NextResponse.json(
-              { error: `Geçersiz dosya tipi: ${file.name}. Sadece PDF, resim ve Office dosyaları kabul edilir.` },
+              { error: validation.error || `Geçersiz dosya: ${file.name}` },
               { status: 400 }
             );
           }
 
-          // Dosya boyutu kontrolü (10MB max)
-          const maxSize = 10 * 1024 * 1024; // 10MB
-          if (file.size > maxSize) {
-            return NextResponse.json(
-              { error: `Dosya boyutu çok büyük: ${file.name}. Maksimum 10MB olmalıdır.` },
-              { status: 400 }
-            );
-          }
-
-          // Dosyayı kaydet
-          const bytes = await file.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-
-          const timestamp = Date.now();
-          const random = Math.random().toString(36).substring(2, 15);
-          const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-          const fileName = `${timestamp}-${random}-${originalName}`;
-
-          const filePath = join(uploadsDir, fileName);
-          await writeFile(filePath, buffer);
-
-          const fileUrl = `/message-attachments/${fileName}`;
+          const stored = await storeFile(file, "message-attachments", "message");
+          const fileUrl = stored.url;
 
           uploadedAttachments.push({
             fileName: file.name,

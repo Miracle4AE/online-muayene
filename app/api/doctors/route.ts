@@ -12,53 +12,30 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get("city")?.trim() || "";
     const hospital = searchParams.get("hospital")?.trim() || "";
 
-    // Basit where clause - sadece onaylanmış doktorlar
     const where: any = {
       role: "DOCTOR",
+      doctorProfile: {
+        isNot: null,
+        verificationStatus: "APPROVED",
+        ...(specialization ? { specialization } : {}),
+        ...(city ? { city } : {}),
+        ...(hospital ? { hospital } : {}),
+      },
     };
 
-    // Tüm doktorları çek
-    const allDoctors = await prisma.user.findMany({
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
+        { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const filteredDoctors = await prisma.user.findMany({
       where,
       include: {
         doctorProfile: true,
       },
-    });
-
-    // JavaScript tarafında filtreleme
-    let filteredDoctors = allDoctors.filter((doctor) => {
-      // Sadece doctorProfile'i olan ve onaylanmış doktorlar
-      if (!doctor.doctorProfile) return false;
-      if (doctor.doctorProfile.verificationStatus !== "APPROVED") return false;
-
-      // Uzmanlık alanı filtresi
-      if (specialization && doctor.doctorProfile.specialization !== specialization) {
-        return false;
-      }
-
-      // Şehir filtresi
-      if (city && doctor.doctorProfile.city !== city) {
-        return false;
-      }
-
-      // Hastane filtresi
-      if (hospital && doctor.doctorProfile.hospital !== hospital) {
-        return false;
-      }
-
-      // Arama filtresi
-      if (search) {
-        const searchLower = search.toLowerCase();
-        const nameMatch = doctor.name.toLowerCase().includes(searchLower);
-        const specializationMatch = doctor.doctorProfile.specialization?.toLowerCase().includes(searchLower);
-        const hospitalMatch = doctor.doctorProfile.hospital?.toLowerCase().includes(searchLower);
-        
-        if (!nameMatch && !specializationMatch && !hospitalMatch) {
-          return false;
-        }
-      }
-
-      return true;
     });
 
     // Reviews'ı toplu olarak çek
@@ -122,20 +99,17 @@ export async function GET(request: NextRequest) {
     });
 
     // Şehir ve hastane listelerini çıkar (filtreleme için)
+    const filterSource = await prisma.doctorProfile.findMany({
+      where: { verificationStatus: "APPROVED" },
+      select: { city: true, hospital: true },
+    });
+
     const cities = Array.from(
-      new Set(
-        allDoctors
-          .filter((d) => d.doctorProfile?.verificationStatus === "APPROVED" && d.doctorProfile?.city)
-          .map((d) => d.doctorProfile!.city!)
-      )
+      new Set(filterSource.map((item) => item.city).filter(Boolean))
     ).sort();
 
     const hospitals = Array.from(
-      new Set(
-        allDoctors
-          .filter((d) => d.doctorProfile?.verificationStatus === "APPROVED" && d.doctorProfile?.hospital)
-          .map((d) => d.doctorProfile!.hospital!)
-      )
+      new Set(filterSource.map((item) => item.hospital).filter(Boolean))
     ).sort();
 
     return NextResponse.json({ 

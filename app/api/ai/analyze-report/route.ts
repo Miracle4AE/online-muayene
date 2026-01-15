@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import OpenAI from "openai";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,11 +15,19 @@ function getOpenAIClient() {
   }
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-  });
+});
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { documentId, appointmentId, doctorId, patientId, fileUrl, documentType, title } = body;
 
@@ -41,40 +50,55 @@ export async function POST(request: NextRequest) {
     // OpenAI client'ı oluştur (sadece runtime'da)
     const openai = getOpenAIClient();
 
-    // Dosyayı oku
-    const filePath = join(process.cwd(), "public", fileUrl.replace("/documents/", ""));
+    // Dosyayı oku (local/remote/data url destekli)
     let fileContent: string;
     let fileType: string;
+    let fileBuffer: Buffer;
+    let fileExtension = fileUrl.split(".").pop()?.toLowerCase() || "";
+    let contentType = "";
 
     try {
-      const fileBuffer = await readFile(filePath);
-      const fileExtension = fileUrl.split(".").pop()?.toLowerCase();
+      if (fileUrl.startsWith("data:")) {
+        const [meta, base64] = fileUrl.split(",");
+        contentType = meta.split(";")[0].replace("data:", "");
+        fileBuffer = Buffer.from(base64, "base64");
+        fileExtension = contentType.split("/")[1] || fileExtension;
+      } else if (fileUrl.startsWith("http")) {
+        const response = await fetch(fileUrl);
+        if (!response.ok) {
+          return NextResponse.json(
+            { error: "Dosya indirilemedi" },
+            { status: 500 }
+          );
+        }
+        contentType = response.headers.get("content-type") || "";
+        fileBuffer = Buffer.from(await response.arrayBuffer());
+        if (!fileExtension && contentType) {
+          fileExtension = contentType.split("/")[1] || fileExtension;
+        }
+      } else {
+        const normalizedPath = fileUrl.replace(/^\//, "");
+        const filePath = join(process.cwd(), "public", normalizedPath);
+        fileBuffer = await readFile(filePath);
+      }
 
-      if (fileExtension === "pdf") {
-        // PDF'den text çıkar
+      if (fileExtension === "pdf" || contentType.includes("pdf")) {
         try {
           const pdfParseModule = await import("pdf-parse");
-          // pdf-parse modülü farklı versiyonlarda farklı export yapısına sahip olabilir
           const pdfParse = (pdfParseModule as any).default || pdfParseModule;
           const pdfData = await pdfParse(fileBuffer);
           fileContent = pdfData.text;
           fileType = "pdf";
           
-          // PDF'den text çıkarılamazsa (görüntü tabanlı PDF), görüntü olarak işle
           if (!fileContent || fileContent.trim().length < 50) {
-            console.log("PDF'den yeterli text çıkarılamadı, görüntü olarak işlenecek");
-            // PDF'i görüntüye dönüştürmek için ek kütüphane gerekir
-            // Şimdilik text olarak devam edelim
             fileContent = pdfData.text || "PDF içeriği çıkarılamadı. Görüntü tabanlı PDF olabilir.";
           }
         } catch (pdfError: any) {
           console.error("PDF parse hatası:", pdfError);
-          // PDF parse başarısız olursa, görüntü olarak işlemeyi dene
           fileContent = "PDF analiz edilemedi. Görüntü tabanlı PDF olabilir.";
           fileType = "pdf-error";
         }
-      } else if (["jpg", "jpeg", "png"].includes(fileExtension || "")) {
-        // Görüntü için base64 encoding
+      } else if (["jpg", "jpeg", "png", "webp"].includes(fileExtension || "") || contentType.startsWith("image/")) {
         const base64Image = fileBuffer.toString("base64");
         fileContent = base64Image;
         fileType = "image";
@@ -132,7 +156,7 @@ Rapor içeriğini Türkçe, profesyonel ve anlaşılır bir şekilde yaz.`;
                 {
                   type: "image_url",
                   image_url: {
-                    url: `data:image/${fileUrl.split(".").pop()};base64,${fileContent}`,
+                    url: `data:image/${fileExtension || "jpeg"};base64,${fileContent}`,
                   },
                 },
               ],

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,19 +13,12 @@ export async function GET(
     const resolvedParams = await Promise.resolve(params);
     const appointmentId = resolvedParams.id;
 
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = (token.role as string) || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error },
+        { status: auth.status }
+      );
     }
 
     const appointment = await prisma.appointment.findUnique({
@@ -43,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: "Randevu bulunamadı" }, { status: 404 });
     }
 
-    if (appointment.doctorId !== userId) {
+    if (appointment.doctorId !== auth.userId) {
       return NextResponse.json({ error: "Bu randevu size ait değil" }, { status: 403 });
     }
 

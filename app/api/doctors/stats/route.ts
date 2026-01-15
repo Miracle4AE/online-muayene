@@ -1,33 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // Header'dan user ID ve role'ü al (primary method)
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
@@ -57,8 +45,10 @@ export async function GET(request: NextRequest) {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    console.log("📅 Bugün:", today.toISOString());
-    console.log("📅 Yarın:", tomorrow.toISOString());
+    if (process.env.NODE_ENV === "development") {
+      console.log("📅 Bugün:", today.toISOString());
+      console.log("📅 Yarın:", tomorrow.toISOString());
+    }
 
     // Bu haftanın başlangıcı (Pazartesi)
     const weekStart = new Date(today);
@@ -71,9 +61,11 @@ export async function GET(request: NextRequest) {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
-    console.log("📅 Hafta Başlangıcı:", weekStart.toISOString());
-    console.log("📅 Hafta Sonu:", weekEnd.toISOString());
-    console.log("👨‍⚕️ Doktor ID:", doctorId);
+    if (process.env.NODE_ENV === "development") {
+      console.log("📅 Hafta Başlangıcı:", weekStart.toISOString());
+      console.log("📅 Hafta Sonu:", weekEnd.toISOString());
+      console.log("👨‍⚕️ Doktor ID:", doctorId);
+    }
 
     // Bugünkü randevular
     const todayAppointments = await prisma.appointment.findMany({

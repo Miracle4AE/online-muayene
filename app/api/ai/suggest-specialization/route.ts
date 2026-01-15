@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { getToken } from "next-auth/jwt";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,16 +36,12 @@ const SPECIALIZATIONS = [
 
 export async function POST(request: NextRequest) {
   try {
-    // Authentication kontrolü (opsiyonel - herkes kullanabilir)
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
     }
 
     const body = await request.json();

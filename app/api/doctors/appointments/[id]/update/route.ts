@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,24 +12,15 @@ export async function PATCH(
   try {
     const appointmentId = params.id;
 
-    // Header'dan user ID ve role'ü al (primary method)
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = (token.role as string) || "";
-      }
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error },
+        { status: auth.status }
+      );
     }
 
-    if (!userId || userRole !== "DOCTOR") {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-    }
-
-    const doctorId = userId;
+    const doctorId = auth.userId;
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({

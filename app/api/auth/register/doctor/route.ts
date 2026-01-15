@@ -4,13 +4,22 @@ import bcrypt from "bcryptjs";
 import { doctorRegisterSchema } from "@/lib/validations";
 import { ZodError } from "zod";
 import crypto from "crypto";
-import { encryptTcKimlik } from "@/lib/encryption";
+import { encryptTcKimlik, hashTcKimlik } from "@/lib/encryption";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.register);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla kayıt denemesi. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = doctorRegisterSchema.parse(body);
 
@@ -27,8 +36,16 @@ export async function POST(request: NextRequest) {
     }
 
     // T.C. Kimlik No kontrolü
+    const tcHash = hashTcKimlik(validatedData.tcKimlikNo);
+    if (!tcHash) {
+      return NextResponse.json(
+        { error: "Geçersiz T.C. Kimlik Numarası" },
+        { status: 400 }
+      );
+    }
+
     const existingTcKimlik = await prisma.doctorProfile.findUnique({
-      where: { tcKimlikNo: validatedData.tcKimlikNo },
+      where: { tcKimlikNoHash: tcHash },
     });
 
     if (existingTcKimlik) {
@@ -66,6 +83,7 @@ export async function POST(request: NextRequest) {
             specialization: validatedData.specialization,
             licenseNumber: validatedData.licenseNumber,
             tcKimlikNo: encryptTcKimlik(validatedData.tcKimlikNo), // Şifrelenmiş TC No
+            tcKimlikNoHash: tcHash,
             bio: validatedData.bio,
             experience: validatedData.experience,
             hospital: validatedData.hospital,

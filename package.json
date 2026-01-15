@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "prisma generate",
@@ -17,10 +17,12 @@
     "backup": "node scripts/manual-backup.js",
     "hash-password": "node scripts/hash-admin-password.js",
     "prepare-telif": "node scripts/prepare-telif-basvurusu.js",
-    "create-demo-accounts": "node scripts/create-demo-accounts.js"
+    "create-demo-accounts": "node scripts/create-demo-accounts.js",
+    "backfill-tc-hash": "node scripts/backfill-tc-hash.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
+    "@vercel/blob": "^2.0.0",
     "bcryptjs": "^2.4.3",
     "date-fns": "^3.6.0",
     "iyzipay": "^2.0.64",

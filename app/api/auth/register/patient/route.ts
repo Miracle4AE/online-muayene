@@ -3,13 +3,22 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { patientRegisterSchema } from "@/lib/validations";
 import { ZodError } from "zod";
-import { encryptTcKimlik } from "@/lib/encryption";
+import { encryptTcKimlik, hashTcKimlik } from "@/lib/encryption";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.register);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla kayıt denemesi. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = patientRegisterSchema.parse(body);
 
@@ -25,24 +34,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // T.C. Kimlik No kontrolü (şifrelenmiş halde arama yapamayız, tüm kayıtları kontrol etmeliyiz)
-    // Not: Bu performans sorunu yaratabilir, alternatif: TC No'nun hash'ini ayrı bir kolonda sakla
-    const allPatients = await prisma.patientProfile.findMany({
-      select: { tcKimlikNo: true },
-    });
-    
-    // Şifre çözümü yaparak kontrol et (geçici çözüm)
-    // Production'da TC No hash'ini ayrı kolonda saklamalısın
-    const { decryptTcKimlik } = await import("@/lib/encryption");
-    const tcExists = allPatients.some(p => {
-      try {
-        return decryptTcKimlik(p.tcKimlikNo || "") === validatedData.tcKimlikNo;
-      } catch {
-        return p.tcKimlikNo === validatedData.tcKimlikNo;
-      }
+    const tcHash = hashTcKimlik(validatedData.tcKimlikNo);
+    if (!tcHash) {
+      return NextResponse.json(
+        { error: "Geçersiz T.C. Kimlik Numarası" },
+        { status: 400 }
+      );
+    }
+
+    const existingTc = await prisma.patientProfile.findUnique({
+      where: { tcKimlikNoHash: tcHash },
+      select: { id: true },
     });
 
-    if (tcExists) {
+    if (existingTc) {
       return NextResponse.json(
         { error: "Bu T.C. Kimlik Numarası zaten kayıtlı" },
         { status: 400 }
@@ -69,6 +74,7 @@ export async function POST(request: NextRequest) {
         patientProfile: {
           create: {
             tcKimlikNo: encryptTcKimlik(validatedData.tcKimlikNo), // Şifrelenmiş TC No
+            tcKimlikNoHash: tcHash,
             dateOfBirth: dateOfBirth,
             gender: validatedData.gender,
             address: validatedData.address,

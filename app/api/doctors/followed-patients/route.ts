@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
+import { requireAuth } from "@/lib/api-auth";
+import { decryptTcKimlik } from "@/lib/encryption";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -8,25 +9,15 @@ export const runtime = 'nodejs';
 // Takip edilen hastaları listele
 export async function GET(request: NextRequest) {
   try {
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
@@ -93,7 +84,9 @@ export async function GET(request: NextRequest) {
         patientName: fp.patient.name,
         patientEmail: fp.patient.email,
         patientPhone: fp.patient.phone,
-        tcKimlikNo: fp.patient.patientProfile?.tcKimlikNo,
+        tcKimlikNo: fp.patient.patientProfile?.tcKimlikNo
+          ? decryptTcKimlik(fp.patient.patientProfile.tcKimlikNo)
+          : null,
         age,
         gender: fp.patient.patientProfile?.gender,
         bloodType: fp.patient.patientProfile?.bloodType,
@@ -125,25 +118,15 @@ export async function GET(request: NextRequest) {
 // Hasta takip et
 export async function POST(request: NextRequest) {
   try {
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
     const body = await request.json();
     const { patientId, notes } = body;
 
@@ -283,25 +266,15 @@ export async function POST(request: NextRequest) {
 // Takibi kaldır
 export async function DELETE(request: NextRequest) {
   try {
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get("patientId");
 

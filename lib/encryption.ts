@@ -1,15 +1,29 @@
 import crypto from "crypto";
 
-// Encryption key (production'da mutlaka .env'den alınmalı!)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "default-key-change-this-in-production-32chars!!";
 const IV_LENGTH = 16; // AES blok boyutu
+
+function getEncryptionKey(): Buffer {
+  const rawKey = process.env.ENCRYPTION_KEY;
+  const isValid = !!rawKey && rawKey.length === 32;
+
+  if (!isValid) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY must be exactly 32 characters in production");
+    }
+
+    const fallback = rawKey || "dev-insecure-key-change-me-32chars!";
+    return Buffer.from(fallback.padEnd(32, "0").substring(0, 32));
+  }
+
+  return Buffer.from(rawKey);
+}
 
 // Veriyi şifrele
 export function encrypt(text: string): string {
   if (!text) return "";
   
   try {
-    const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32));
+    const key = getEncryptionKey();
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
     
@@ -20,7 +34,10 @@ export function encrypt(text: string): string {
     return iv.toString("hex") + ":" + encrypted;
   } catch (error) {
     console.error("Encryption error:", error);
-    return text; // Hata durumunda düz metni döndür (veri kaybı olmasın)
+    if (process.env.NODE_ENV === "production") {
+      throw error;
+    }
+    return text; // Development ortamında veri kaybı olmasın
   }
 }
 
@@ -35,7 +52,7 @@ export function decrypt(encryptedText: string): string {
     const iv = Buffer.from(parts[0], "hex");
     const encrypted = parts[1];
     
-    const key = Buffer.from(ENCRYPTION_KEY.padEnd(32, '0').substring(0, 32));
+    const key = getEncryptionKey();
     const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
     
     let decrypted = decipher.update(encrypted, "hex", "utf8");
@@ -44,7 +61,10 @@ export function decrypt(encryptedText: string): string {
     return decrypted;
   } catch (error) {
     console.error("Decryption error:", error);
-    return encryptedText; // Hata durumunda encrypted metni döndür
+    if (process.env.NODE_ENV === "production") {
+      throw error;
+    }
+    return encryptedText;
   }
 }
 
@@ -55,16 +75,35 @@ export function hash(text: string): string {
 
 // TC Kimlik No şifrele (özel format)
 export function encryptTcKimlik(tcNo: string): string {
-  if (!tcNo || tcNo.length !== 11) {
-    return tcNo; // Geçersiz TC No
+  const normalized = normalizeTcKimlik(tcNo);
+  if (!normalized) {
+    return tcNo;
   }
-  return encrypt(tcNo);
+  return encrypt(normalized);
 }
 
 // TC Kimlik No deşifrele
 export function decryptTcKimlik(encryptedTcNo: string): string {
   if (!encryptedTcNo) return "";
   return decrypt(encryptedTcNo);
+}
+
+export function normalizeTcKimlik(tcNo: string): string {
+  const normalized = (tcNo || "").replace(/\D/g, "").trim();
+  if (normalized.length !== 11) return "";
+  return normalized;
+}
+
+export function hashTcKimlik(tcNo: string): string {
+  const normalized = normalizeTcKimlik(tcNo);
+  if (!normalized) return "";
+  return hash(normalized);
+}
+
+export function maskTcKimlik(tcNo: string): string {
+  const normalized = normalizeTcKimlik(tcNo);
+  if (!normalized) return "";
+  return normalized.replace(/\d(?=\d{2})/g, "*");
 }
 
 // Telefon numarası şifrele

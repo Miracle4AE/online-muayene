@@ -1,22 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
 import { prisma } from "@/lib/prisma";
+import { validateFormDataFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const fileValidation = await validateFormDataFile(formData, "file", {
+      allowedTypes: ALLOWED_FILE_TYPES.medical,
+      maxSize: MAX_FILE_SIZES.document,
+      required: true,
+    });
+    const file = fileValidation.file;
     const documentType = formData.get("documentType") as string;
     const doctorId = formData.get("doctorId") as string;
 
-    if (!file) {
+    if (!file || !fileValidation.valid) {
       return NextResponse.json(
-        { error: "Dosya bulunamadı" },
+        { error: fileValidation.error || "Dosya bulunamadı" },
         { status: 400 }
       );
     }
@@ -28,46 +41,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dosya tipi kontrolü
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Geçersiz dosya tipi. Sadece PDF, JPG, JPEG ve PNG dosyaları kabul edilir." },
-        { status: 400 }
-      );
-    }
-
-    // Dosya boyutu kontrolü (10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "Dosya boyutu 10MB'dan büyük olamaz" },
-        { status: 400 }
-      );
-    }
-
-    // Dosya adını oluştur
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    const timestamp = Date.now();
-    const fileExtension = file.name.split(".").pop();
-    const fileName = `${doctorId}_${documentType}_${timestamp}.${fileExtension}`;
-    
-    // Klasör yolu
-    const uploadDir = join(process.cwd(), "public", "doctor-documents");
-    
-    // Klasör yoksa oluştur
-    if (!existsSync(uploadDir)) {
-      mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // Dosyayı kaydet
-    const filePath = join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
-
-    // URL oluştur
-    const fileUrl = `/doctor-documents/${fileName}`;
+    const stored = await storeFile(file, "doctor-documents", `${doctorId}-${documentType}`);
+    const fileUrl = stored.url;
 
     // Database'e kaydet
     const doctorProfile = await prisma.doctorProfile.findUnique({
@@ -75,12 +50,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!doctorProfile) {
-      // Dosyayı sil
-      const fs = require("fs");
-      const filePath = join(process.cwd(), "public", "doctor-documents", fileName);
-      if (existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      // External storage kullanılıyorsa fiziksel dosya silme atlanır
       return NextResponse.json(
         { error: "Doktor profili bulunamadı" },
         { status: 404 }

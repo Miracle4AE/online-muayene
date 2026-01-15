@@ -1,21 +1,17 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse, NextRequest } from "next/server";
+import { verifyAdminToken } from "@/lib/admin-token";
 
 // Admin token kontrolü fonksiyonu
 function isAdminAuthenticated(req: NextRequest): boolean {
-  const adminToken = req.cookies.get("admin_token");
-  if (!adminToken) return false;
-  
-  try {
-    const decoded = Buffer.from(adminToken.value, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    const email = parts[0];
-    
-    const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
-    return adminEmails.includes(email);
-  } catch {
-    return false;
-  }
+  const token = req.cookies.get("admin_token")?.value;
+  if (!token) return false;
+
+  const verified = verifyAdminToken(token);
+  if (!verified.valid || !verified.payload?.email) return false;
+
+  const adminEmails = process.env.ADMIN_EMAILS?.split(",") || [];
+  return adminEmails.includes(verified.payload.email);
 }
 
 export default withAuth(

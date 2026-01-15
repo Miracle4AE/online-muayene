@@ -1,36 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getToken } from "next-auth/jwt";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { requireAuth } from "@/lib/api-auth";
+import { validateFormDataFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
-    // Header'dan user ID ve role'ü al
-    let userId = request.headers.get("x-user-id");
-    let userRole = request.headers.get("x-user-role");
-
-    // Fallback: getToken kullan
-    if (!userId) {
-      const token = await getToken({ req: request });
-      if (token) {
-        userId = token.sub || "";
-        userRole = token.role as string || "";
-      }
-    }
-
-    if (!userId || userRole !== "DOCTOR") {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
       return NextResponse.json(
-        { error: "Yetkisiz erişim" },
-        { status: 403 }
+        { error: auth.error },
+        { status: auth.status }
       );
     }
 
-    const doctorId = userId;
+    const doctorId = auth.userId;
 
     // Doktorun onay durumunu kontrol et
     const doctor = await prisma.user.findUnique({
@@ -60,7 +47,12 @@ export async function POST(request: NextRequest) {
     const title = formData.get("title") as string;
     const reportType = formData.get("reportType") as string;
     const content = formData.get("content") as string;
-    const file = formData.get("file") as File | null;
+    const fileValidation = await validateFormDataFile(formData, "file", {
+      allowedTypes: ALLOWED_FILE_TYPES.medical,
+      maxSize: MAX_FILE_SIZES.medical,
+      required: false,
+    });
+    const file = fileValidation.file || null;
 
     // Validasyon
     if (!patientId || !title || !reportType || !content) {
@@ -85,51 +77,14 @@ export async function POST(request: NextRequest) {
     // Dosya yükleme (varsa)
     let fileUrl: string | null = null;
     if (file && file.size > 0) {
-      try {
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Dosya uzantısını kontrol et
-        const fileName = file.name;
-        const fileExtension = fileName.split(".").pop()?.toLowerCase();
-        const allowedExtensions = ["pdf", "jpg", "jpeg", "png"];
-
-        if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
-          return NextResponse.json(
-            { error: "Sadece PDF, JPG, JPEG, PNG formatları desteklenmektedir" },
-            { status: 400 }
-          );
-        }
-
-        // Dosya boyutu kontrolü (10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          return NextResponse.json(
-            { error: "Dosya boyutu 10MB'dan büyük olamaz" },
-            { status: 400 }
-          );
-        }
-
-        // Dosya adını oluştur
-        const timestamp = Date.now();
-        const sanitizedFileName = `${timestamp}-${fileName.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-        const filePath = join(process.cwd(), "public", "documents", sanitizedFileName);
-
-        // Dizin yoksa oluştur
-        const dir = join(process.cwd(), "public", "documents");
-        if (!existsSync(dir)) {
-          mkdirSync(dir, { recursive: true });
-        }
-
-        // Dosyayı kaydet
-        await writeFile(filePath, buffer);
-        fileUrl = `/documents/${sanitizedFileName}`;
-      } catch (fileError: any) {
-        console.error("Dosya yükleme hatası:", fileError);
+      if (!fileValidation.valid) {
         return NextResponse.json(
-          { error: "Dosya yüklenirken bir hata oluştu" },
-          { status: 500 }
+          { error: fileValidation.error || "Geçersiz dosya" },
+          { status: 400 }
         );
       }
+      const stored = await storeFile(file, "documents", `${doctorId}-report`);
+      fileUrl = stored.url;
     }
 
     // Raporu oluştur

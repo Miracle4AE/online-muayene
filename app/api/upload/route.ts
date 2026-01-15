@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import { join } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { validateUploadedFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
+import { storeFile } from "@/lib/storage";
+import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
+    const limit = rateLimit(request, RATE_LIMITS.api);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla istek. Lütfen daha sonra tekrar deneyin." },
+        { status: 429 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -18,49 +26,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Dosya tipi kontrolü
-    if (!file.type.startsWith("image/")) {
+    const validation = await validateUploadedFile(file, {
+      allowedTypes: ALLOWED_FILE_TYPES.images,
+      maxSize: MAX_FILE_SIZES.image,
+      checkMagicBytes: true,
+    });
+
+    if (!validation.valid) {
       return NextResponse.json(
-        { error: "Sadece resim dosyaları yüklenebilir" },
+        { error: validation.error || "Dosya doğrulaması başarısız" },
         { status: 400 }
       );
     }
 
-    // Dosya boyutu kontrolü (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "Dosya boyutu 5MB'dan küçük olmalıdır" },
-        { status: 400 }
-      );
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Dosya adını oluştur (timestamp + random + orijinal isim)
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const fileName = `${timestamp}-${random}-${originalName}`;
-
-    // Uploads klasörünü oluştur
-    const uploadsDir = join(process.cwd(), "public", "uploads");
-    if (!existsSync(uploadsDir)) {
-      mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Dosyayı kaydet
-    const filePath = join(uploadsDir, fileName);
-    await writeFile(filePath, buffer);
-
-    // Public URL'i döndür
-    const fileUrl = `/uploads/${fileName}`;
+    const stored = await storeFile(file, "uploads", "profile");
 
     return NextResponse.json({
       success: true,
-      url: fileUrl,
-      fileName: fileName,
+      url: stored.url,
+      fileName: stored.fileName,
     });
   } catch (error: any) {
     console.error("Upload error:", error);
