@@ -88,6 +88,7 @@ export default function PatientDashboard() {
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH">("ALL");
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "COMPLETED" | "CANCELLED">("ALL");
+  const [appointmentCustomDate, setAppointmentCustomDate] = useState("");
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [selectedAppointmentForMeeting, setSelectedAppointmentForMeeting] = useState<Appointment | null>(null);
   const [submittingConsent, setSubmittingConsent] = useState(false);
@@ -766,6 +767,15 @@ export default function PatientDashboard() {
       filtered = filtered.filter((item) => item.status === appointmentStatusFilter);
     }
 
+    if (appointmentCustomDate) {
+      filtered = filtered.filter((item) => {
+        const date = new Date(item.appointmentDate);
+        const target = new Date(appointmentCustomDate);
+        return date.toDateString() === target.toDateString();
+      });
+      return filtered;
+    }
+
     if (appointmentDateFilter !== "ALL") {
       const now = new Date();
       filtered = filtered.filter((item) => {
@@ -1140,6 +1150,15 @@ export default function PatientDashboard() {
               </select>
             </div>
             <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-primary-700">Seçili Tarih</span>
+              <input
+                type="date"
+                value={appointmentCustomDate}
+                onChange={(event) => setAppointmentCustomDate(event.target.value)}
+                className="text-sm border border-primary-200 rounded-lg px-3 py-2 bg-white text-primary-800 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-primary-700">Durum</span>
               <select
                 value={appointmentStatusFilter}
@@ -1157,11 +1176,12 @@ export default function PatientDashboard() {
                 <option value="CANCELLED">İptal</option>
               </select>
             </div>
-            {(appointmentDateFilter !== "ALL" || appointmentStatusFilter !== "ALL") && (
+            {(appointmentDateFilter !== "ALL" || appointmentStatusFilter !== "ALL" || appointmentCustomDate) && (
               <button
                 onClick={() => {
                   setAppointmentDateFilter("ALL");
                   setAppointmentStatusFilter("ALL");
+                  setAppointmentCustomDate("");
                 }}
                 className="text-sm font-semibold text-primary-600 hover:text-primary-700"
               >
