@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         },
         patientAppointments: {
           where: {
-            doctorId: userId,
+            doctorId: auth.userId,
           },
           select: {
             id: true,
