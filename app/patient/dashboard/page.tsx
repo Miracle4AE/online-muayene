@@ -1050,7 +1050,7 @@ export default function PatientDashboard() {
             </Link>
           </div>
 
-          {appointments.length === 0 ? (
+          {upcomingAppointments.length === 0 && pastAppointments.length === 0 ? (
             <div className="text-center py-12">
               <svg
                 className="w-16 h-16 text-primary-300 mx-auto mb-4"
@@ -1074,141 +1074,278 @@ export default function PatientDashboard() {
               </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {appointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-primary-900">
-                        {appointment.doctor.name}
-                      </h3>
-                      <p className="text-sm text-primary-600">
-                        {appointment.doctor.email}
-                      </p>
-                      <p className="text-sm text-primary-500 mt-2">
-                        {new Date(appointment.appointmentDate).toLocaleString(
-                          "tr-TR"
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          appointment.status === "CONFIRMED"
-                            ? "bg-green-100 text-green-800"
-                            : appointment.status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {appointment.status === "CONFIRMED"
-                          ? "Onaylandı"
-                          : appointment.status === "PENDING"
-                          ? "Bekliyor"
-                          : "Tamamlandı"}
-                      </span>
-                      {appointment.meetingLink && (() => {
-                        const canJoin = canJoinMeeting(appointment.appointmentDate);
-                        const appointmentTime = new Date(appointment.appointmentDate);
-                        const now = new Date();
-                        const isPast = appointmentTime < now;
-                        
-                        if (isPast) {
-                          // Geçmiş randevular için buton devre dışı
-                          return (
-                            <button
-                              disabled
-                              className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
-                              title="Bu randevu tarihi geçmiş"
-                            >
-                              Görüşmeye Katıl
-                            </button>
-                          );
-                        } else if (canJoin) {
-                          // Randevu saati geldiyse aktif buton
-                          return (
-                            <button
-                              onClick={() => handleJoinMeeting(appointment)}
-                              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
-                            >
-                              Görüşmeye Katıl
-                            </button>
-                          );
-                        } else {
-                          // Randevu saati henüz gelmediyse devre dışı
-                          return (
-                            <button
-                              disabled
-                              className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
-                              title="Randevu saatinden 15 dakika önce aktif olacak"
-                            >
-                              Görüşmeye Katıl
-                            </button>
-                          );
-                        }
-                      })()}
-                      <button
-                        onClick={() => handleUploadReport(appointment)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        Rapor Yükle
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Yüklenen Raporlar */}
-                  {appointment.documents && appointment.documents.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-primary-200">
-                      <p className="text-sm font-semibold text-primary-900 mb-2">
-                        Yüklenen Raporlar:
-                      </p>
-                      <div className="space-y-2">
-                        {appointment.documents.map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex items-center justify-between p-2 bg-primary-50 rounded-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                className="w-5 h-5 text-primary-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                              </svg>
-                              <div>
-                                <p className="text-sm font-medium text-primary-900">
-                                  {doc.title}
-                                </p>
-                                <p className="text-xs text-primary-600">
-                                  {doc.documentType} • {doc.aiAnalyzed ? "AI Analiz Edildi" : "Analiz Bekliyor"}
-                                </p>
-                              </div>
-                            </div>
-                            <a
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary-600 hover:text-primary-800 text-sm"
-                            >
-                              Görüntüle
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            <div className="space-y-8">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-primary-900">Yaklaşan Randevularım</h3>
+                  {upcomingAppointments.length > 3 && (
+                    <button
+                      onClick={() => setShowMyAppointmentsModal(true)}
+                      className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+                    >
+                      Daha fazla gör
+                    </button>
                   )}
                 </div>
-              ))}
+                {upcomingAppointments.length === 0 ? (
+                  <div className="text-sm text-primary-600 bg-primary-50 rounded-lg p-4">
+                    Yaklaşan randevunuz bulunmuyor.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingAppointments.slice(0, 3).map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold text-primary-900">
+                              {appointment.doctor.name}
+                            </h3>
+                            <p className="text-sm text-primary-600">
+                              {appointment.doctor.email}
+                            </p>
+                            <p className="text-sm text-primary-500 mt-2">
+                              {new Date(appointment.appointmentDate).toLocaleString("tr-TR")}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                appointment.status === "CONFIRMED"
+                                  ? "bg-green-100 text-green-800"
+                                  : appointment.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {appointment.status === "CONFIRMED"
+                                ? "Onaylandı"
+                                : appointment.status === "PENDING"
+                                ? "Bekliyor"
+                                : "Tamamlandı"}
+                            </span>
+                            {appointment.meetingLink && (() => {
+                              const canJoin = canJoinMeeting(appointment.appointmentDate);
+                              const appointmentTime = new Date(appointment.appointmentDate);
+                              const now = new Date();
+                              const isPast = appointmentTime < now;
+
+                              if (isPast) {
+                                return (
+                                  <button
+                                    disabled
+                                    className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
+                                    title="Bu randevu tarihi geçmiş"
+                                  >
+                                    Görüşmeye Katıl
+                                  </button>
+                                );
+                              } else if (canJoin) {
+                                return (
+                                  <button
+                                    onClick={() => handleJoinMeeting(appointment)}
+                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
+                                  >
+                                    Görüşmeye Katıl
+                                  </button>
+                                );
+                              } else {
+                                return (
+                                  <button
+                                    disabled
+                                    className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
+                                    title="Randevu saatinden 15 dakika önce aktif olacak"
+                                  >
+                                    Görüşmeye Katıl
+                                  </button>
+                                );
+                              }
+                            })()}
+                            <button
+                              onClick={() => handleUploadReport(appointment)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              Rapor Yükle
+                            </button>
+                          </div>
+                        </div>
+
+                        {appointment.documents && appointment.documents.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-primary-200">
+                            <p className="text-sm font-semibold text-primary-900 mb-2">
+                              Yüklenen Raporlar:
+                            </p>
+                            <div className="space-y-2">
+                              {appointment.documents.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="flex items-center justify-between p-2 bg-primary-50 rounded-lg"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <svg
+                                      className="w-5 h-5 text-primary-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                    <div>
+                                      <p className="text-sm font-medium text-primary-900">
+                                        {doc.title}
+                                      </p>
+                                      <p className="text-xs text-primary-600">
+                                        {doc.documentType} • {doc.aiAnalyzed ? "AI Analiz Edildi" : "Analiz Bekliyor"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={doc.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                                  >
+                                    Görüntüle
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-6 border-t border-primary-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-primary-900">Geçmiş Randevularım</h3>
+                  {pastAppointments.length > 3 && (
+                    <button
+                      onClick={() => setShowPastAppointmentsModal(true)}
+                      className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+                    >
+                      Daha fazla gör
+                    </button>
+                  )}
+                </div>
+                {pastAppointments.length === 0 ? (
+                  <div className="text-sm text-primary-600 bg-primary-50 rounded-lg p-4">
+                    Geçmiş randevunuz bulunmuyor.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pastAppointments.slice(0, 3).map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold text-primary-900">
+                              {appointment.doctor.name}
+                            </h3>
+                            <p className="text-sm text-primary-600">
+                              {appointment.doctor.email}
+                            </p>
+                            <p className="text-sm text-primary-500 mt-2">
+                              {new Date(appointment.appointmentDate).toLocaleString("tr-TR")}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                appointment.status === "CONFIRMED"
+                                  ? "bg-green-100 text-green-800"
+                                  : appointment.status === "PENDING"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
+                            >
+                              {appointment.status === "CONFIRMED"
+                                ? "Onaylandı"
+                                : appointment.status === "PENDING"
+                                ? "Bekliyor"
+                                : "Tamamlandı"}
+                            </span>
+                            {appointment.meetingLink && (
+                              <button
+                                disabled
+                                className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
+                                title="Bu randevu tarihi geçmiş"
+                              >
+                                Görüşmeye Katıl
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleUploadReport(appointment)}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              Rapor Yükle
+                            </button>
+                          </div>
+                        </div>
+
+                        {appointment.documents && appointment.documents.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-primary-200">
+                            <p className="text-sm font-semibold text-primary-900 mb-2">
+                              Yüklenen Raporlar:
+                            </p>
+                            <div className="space-y-2">
+                              {appointment.documents.map((doc) => (
+                                <div
+                                  key={doc.id}
+                                  className="flex items-center justify-between p-2 bg-primary-50 rounded-lg"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <svg
+                                      className="w-5 h-5 text-primary-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                    <div>
+                                      <p className="text-sm font-medium text-primary-900">
+                                        {doc.title}
+                                      </p>
+                                      <p className="text-xs text-primary-600">
+                                        {doc.documentType} • {doc.aiAnalyzed ? "AI Analiz Edildi" : "Analiz Bekliyor"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={doc.fileUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                                  >
+                                    Görüntüle
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
