@@ -193,22 +193,29 @@ export default function PatientDashboard() {
       setAppointments(allAppointments);
       
       const now = new Date();
+      const lateJoinWindowMinutes = 60;
 
-      // Geçmiş randevuları filtrele (tarih geçmiş veya durum tamamlandı/iptal)
+      // Geçmiş randevuları filtrele (tamamlandı/iptal ya da geç katılım penceresi bitti)
       const past = allAppointments.filter((apt: Appointment) => {
         const aptDate = new Date(apt.appointmentDate);
+        const joinWindowEnd = new Date(aptDate.getTime() + lateJoinWindowMinutes * 60 * 1000);
         return (
           apt.status === "COMPLETED" ||
           apt.status === "CANCELLED" ||
-          aptDate < now
+          now > joinWindowEnd
         );
       });
       setPastAppointments(past);
 
-      // Yaklaşan randevuları filtrele (gelecekteki ve iptal olmayan randevular)
+      // Yaklaşan randevuları filtrele (iptal/bitmiş değil ve geç katılım penceresi bitmemiş)
       const upcoming = allAppointments.filter((apt: Appointment) => {
         const aptDate = new Date(apt.appointmentDate);
-        return apt.status !== "CANCELLED" && aptDate >= now;
+        const joinWindowEnd = new Date(aptDate.getTime() + lateJoinWindowMinutes * 60 * 1000);
+        return (
+          apt.status !== "CANCELLED" &&
+          apt.status !== "COMPLETED" &&
+          now <= joinWindowEnd
+        );
       });
       setUpcomingAppointments(upcoming);
     } catch (err: any) {
