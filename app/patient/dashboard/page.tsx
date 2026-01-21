@@ -1261,25 +1261,27 @@ export default function PatientDashboard() {
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             {getStatusBadge(appointment.status)}
-                            {appointment.meetingLink && (() => {
+                            {(() => {
                               const canJoin = canJoinMeeting(appointment.appointmentDate);
-
-                              if (canJoin) {
-                                return (
-                                  <button
-                                    onClick={() => handleJoinMeeting(appointment)}
-                                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
-                                  >
-                                    Görüşmeye Katıl
-                                  </button>
-                                );
-                              }
+                              const isJoinDisabled =
+                                appointment.status === "CANCELLED" || appointment.status === "COMPLETED";
 
                               return (
                                 <button
-                                  disabled
-                                  className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
-                                  title="Randevu saatinden 15 dakika önce aktif olur, bitişten sonra 60 dakika içinde açıktır"
+                                  onClick={() => handleJoinMeeting(appointment)}
+                                  disabled={isJoinDisabled}
+                                  className={`px-4 py-2 rounded-lg transition-colors text-sm ${
+                                    isJoinDisabled
+                                      ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                      : "bg-primary-600 text-white hover:bg-primary-700"
+                                  }`}
+                                  title={
+                                    isJoinDisabled
+                                      ? "Bu randevu iptal edildi veya tamamlandı"
+                                      : !canJoin
+                                      ? "Randevu saatinden 15 dakika önce aktif olur. Erken girerseniz bekleme ekranı görürsünüz."
+                                      : undefined
+                                  }
                                 >
                                   Görüşmeye Katıl
                                 </button>
@@ -1676,24 +1678,27 @@ export default function PatientDashboard() {
                         <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                           Onaylandı
                         </span>
-                        {canJoin ? (
-                          <button
-                            onClick={() => handleJoinMeeting(appointment)}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold flex items-center gap-2"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            Görüntülü Görüşmeye Katıl
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm font-semibold"
-                          >
-                            Henüz Zamanı Gelmedi
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleJoinMeeting(appointment)}
+                          disabled={appointment.status === "CANCELLED" || appointment.status === "COMPLETED"}
+                          className={`px-4 py-2 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 ${
+                            appointment.status === "CANCELLED" || appointment.status === "COMPLETED"
+                              ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                              : "bg-green-600 text-white hover:bg-green-700"
+                          }`}
+                          title={
+                            appointment.status === "CANCELLED" || appointment.status === "COMPLETED"
+                              ? "Bu randevu iptal edildi veya tamamlandı"
+                              : !canJoin
+                              ? "Randevu saatinden 15 dakika önce aktif olur. Erken girerseniz bekleme ekranı görürsünüz."
+                              : undefined
+                          }
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          Görüntülü Görüşmeye Katıl
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3152,26 +3157,23 @@ export default function PatientDashboard() {
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               {getStatusBadge(appointment.status)}
-                              {appointment.status === "CONFIRMED" && appointment.meetingLink && canJoin && (
+                              {appointment.status !== "CANCELLED" && appointment.status !== "COMPLETED" && (
                                 <button
                                   onClick={() => {
                                     setShowMyAppointmentsModal(false);
                                     handleJoinMeeting(appointment);
                                   }}
                                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-semibold flex items-center gap-2"
+                                  title={
+                                    !canJoin
+                                      ? "Randevu saatinden 15 dakika önce aktif olur. Erken girerseniz bekleme ekranı görürsünüz."
+                                      : undefined
+                                  }
                                 >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                   </svg>
                                   Görüntülü Görüşmeye Katıl
-                                </button>
-                              )}
-                              {appointment.status === "CONFIRMED" && appointment.meetingLink && !canJoin && (
-                                <button
-                                  disabled
-                                  className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm font-semibold"
-                                >
-                                  Henüz Zamanı Gelmedi
                                 </button>
                               )}
                             </div>
