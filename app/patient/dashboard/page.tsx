@@ -95,6 +95,7 @@ export default function PatientDashboard() {
   const [showMyAppointmentsModal, setShowMyAppointmentsModal] = useState(false);
   const [patientDocuments, setPatientDocuments] = useState<any[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [showReportsModal, setShowReportsModal] = useState(false);
   const [favoriteDoctors, setFavoriteDoctors] = useState<any[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -1711,6 +1712,14 @@ export default function PatientDashboard() {
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-primary-900">Yüklenen Raporlarım</h2>
+            {patientDocuments.length > 3 && (
+              <button
+                onClick={() => setShowReportsModal(true)}
+                className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+              >
+                Daha fazla gör
+              </button>
+            )}
           </div>
 
           {loadingDocuments ? (
@@ -1737,7 +1746,7 @@ export default function PatientDashboard() {
             </div>
           ) : (
             <div className="space-y-4">
-              {patientDocuments.map((doc) => (
+              {patientDocuments.slice(0, 3).map((doc) => (
                 <div
                   key={doc.id}
                   className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -1968,6 +1977,176 @@ export default function PatientDashboard() {
                             <button className="text-primary-600 hover:text-primary-800 text-sm font-semibold">
                               Detayları Gör →
                             </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Yüklenen Raporlar Modal */}
+        {showReportsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6 p-6 border-b border-primary-200">
+                <h3 className="text-2xl font-bold text-primary-900">Yüklenen Raporlarım</h3>
+                <button
+                  onClick={() => setShowReportsModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6">
+                {patientDocuments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg
+                      className="w-16 h-16 text-primary-300 mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <p className="text-primary-600">Henüz yüklenmiş rapor bulunmuyor</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {patientDocuments.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-start gap-4">
+                              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                <svg
+                                  className="w-6 h-6 text-blue-600"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  />
+                                </svg>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h4 className="font-semibold text-primary-900 text-lg">
+                                    {doc.title}
+                                  </h4>
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                    {doc.documentType}
+                                  </span>
+                                  {doc.aiAnalyzed && (
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                      AI Analiz Edildi
+                                    </span>
+                                  )}
+                                </div>
+
+                                {doc.appointment && doc.appointment.doctor && (
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <svg
+                                      className="w-4 h-4 text-primary-500"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                      />
+                                    </svg>
+                                    <span className="text-sm text-primary-700 font-medium">
+                                      {doc.appointment.doctor.name}
+                                    </span>
+                                    {doc.appointment.doctor.specialization && (
+                                      <>
+                                        <span className="text-primary-400">•</span>
+                                        <span className="text-sm text-primary-600">
+                                          {doc.appointment.doctor.specialization}
+                                        </span>
+                                      </>
+                                    )}
+                                    {doc.appointment.doctor.hospital && (
+                                      <>
+                                        <span className="text-primary-400">•</span>
+                                        <span className="text-sm text-primary-600">
+                                          {doc.appointment.doctor.hospital}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+
+                                {doc.description && (
+                                  <p className="text-sm text-primary-600 mb-2">{doc.description}</p>
+                                )}
+
+                                <div className="flex items-center gap-4 text-xs text-primary-500 mt-2">
+                                  <span>
+                                    Yüklenme: {new Date(doc.createdAt).toLocaleDateString("tr-TR", {
+                                      year: "numeric",
+                                      month: "long",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                  {doc.documentDate && (
+                                    <span>
+                                      Belge Tarihi: {new Date(doc.documentDate).toLocaleDateString("tr-TR", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 ml-4">
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-semibold flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                              Görüntüle
+                            </a>
                           </div>
                         </div>
                       </div>
