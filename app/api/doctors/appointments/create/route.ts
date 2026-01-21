@@ -93,10 +93,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Meeting link oluştur (Jitsi Meet formatında)
-    const meetingId = `appointment-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const meetingLink = `https://meet.jit.si/${meetingId}`;
-
     // Randevuyu oluştur
     const appointment = await prisma.appointment.create({
       data: {
@@ -105,7 +101,6 @@ export async function POST(request: NextRequest) {
         appointmentDate: appointmentDate,
         status: "CONFIRMED", // Doktor tarafından oluşturulduğu için direkt CONFIRMED
         notes: validatedData.notes || null,
-        meetingLink: meetingLink,
       },
       include: {
         doctor: {
@@ -130,6 +125,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Meeting link oluştur (sistem içi görüşme sayfası)
+    const meetingLink = `${request.nextUrl.origin}/meeting/${appointment.id}?appointmentId=${appointment.id}&doctorId=${doctorId}&patientId=${validatedData.patientId}`;
+
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { meetingLink },
+    });
+    const appointmentWithLink = { ...appointment, meetingLink };
+
     // Email ve SMS bildirimi gönder (asenkron)
     try {
       const notificationResponse = await fetch(`${request.nextUrl.origin}/api/notifications/appointment-created`, {
@@ -138,14 +142,14 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          appointmentId: appointment.id,
-          patientEmail: patient.email,
-          patientPhone: patient.phone,
-          patientName: patient.name,
-          doctorName: doctor.name,
-          doctorSpecialization: doctor.doctorProfile?.specialization,
-          hospital: doctor.doctorProfile?.hospital,
-          appointmentDate: appointment.appointmentDate,
+          appointmentId: appointmentWithLink.id,
+          patientEmail: appointmentWithLink.patient.email,
+          patientPhone: appointmentWithLink.patient.phone,
+          patientName: appointmentWithLink.patient.name,
+          doctorName: appointmentWithLink.doctor.name,
+          doctorSpecialization: appointmentWithLink.doctor.doctorProfile?.specialization,
+          hospital: appointmentWithLink.doctor.doctorProfile?.hospital,
+          appointmentDate: appointmentWithLink.appointmentDate,
         }),
       });
 
@@ -159,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      appointment,
+      appointment: appointmentWithLink,
       message: "Randevu başarıyla oluşturuldu. Hastaya bildirim gönderildi.",
     });
   } catch (error: any) {
