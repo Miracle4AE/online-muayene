@@ -616,10 +616,22 @@ export default function PatientDashboard() {
 
     setSubmittingConsent(true);
     try {
-      // IP adresini al
-      const ipResponse = await fetch("https://api.ipify.org?format=json");
-      const ipData = await ipResponse.json();
-      const userIp = ipData.ip || "unknown";
+      // IP adresini al (başarısız olursa akışı durdurma)
+      let userIp = "unknown";
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const ipResponse = await fetch("https://api.ipify.org?format=json", {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (ipResponse.ok) {
+          const ipData = await ipResponse.json();
+          userIp = ipData.ip || "unknown";
+        }
+      } catch {
+        userIp = "unknown";
+      }
 
       const response = await fetch("/api/meetings/give-consent", {
         method: "POST",
