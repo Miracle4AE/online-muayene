@@ -101,7 +101,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const now = new Date();
     const meetingEndsAt = new Date(now.getTime() + 15 * 60 * 1000);
     const meetingLink = `${request.nextUrl.origin}/meeting/${validatedData.appointmentId}?appointmentId=${validatedData.appointmentId}&doctorId=${doctorId}&patientId=${appointment.patientId}`;
 
