@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 const createPrescriptionSchema = z.object({
   appointmentId: z.string().min(1, "Randevu seçilmelidir"),
   patientId: z.string().min(1, "Hasta seçilmelidir"),
+  prescriptionNumber: z.string().optional().nullable(),
   diagnosis: z.string().optional().nullable(),
   medications: z.string().min(1, "İlaçlar belirtilmelidir"),
   notes: z.string().optional().nullable(),
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
         appointmentId: validatedData.appointmentId,
         doctorId: doctorId,
         patientId: validatedData.patientId,
+        prescriptionNumber: validatedData.prescriptionNumber || null,
         diagnosis: validatedData.diagnosis || null,
         medications: validatedData.medications,
         notes: validatedData.notes || null,

@@ -967,9 +967,7 @@ export default function DoctorDashboardPage() {
     setError("");
 
     try {
-      // Jitsi Meet görüşme linki oluştur
-      const meetingId = `muayene-${appointment.id}-${Date.now()}`;
-      const meetingUrl = `${window.location.origin}/meeting/${meetingId}?appointmentId=${appointment.id}&doctorId=${session.user.id}&patientId=${appointment.patient.id}`;
+      const meetingUrl = `${window.location.origin}/meeting/${appointment.id}?appointmentId=${appointment.id}&doctorId=${session.user.id}&patientId=${appointment.patient.id}`;
 
       // Görüşmeyi başlat (API'ye kaydet)
       const response = await fetch("/api/doctors/meetings/start", {
@@ -982,7 +980,6 @@ export default function DoctorDashboardPage() {
         credentials: "include",
         body: JSON.stringify({
           appointmentId: appointment.id,
-          meetingLink: meetingUrl,
         }),
       });
 
@@ -996,7 +993,7 @@ export default function DoctorDashboardPage() {
       setMeetingStarted(true);
 
       // Yeni pencerede görüşmeyi aç
-      window.open(meetingUrl, "_blank", "width=1200,height=800");
+      window.open(meetingUrl, "_blank", "noopener,noreferrer,width=1280,height=800");
     } catch (err: any) {
       const errorMessage = err.message || "Görüşme başlatılırken bir hata oluştu";
       setError(errorMessage);

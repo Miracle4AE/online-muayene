@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth";
 import { z } from "zod";
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +14,14 @@ const endMeetingSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth(request, "DOCTOR");
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.error },
+        { status: auth.status }
+      );
+    }
+
     const body = await request.json();
     const validatedData = endMeetingSchema.parse(body);
 
@@ -36,6 +45,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (appointment.doctorId !== auth.userId) {
+      return NextResponse.json(
+        { error: "Bu randevu size ait değil" },
+        { status: 403 }
+      );
+    }
+
     // Son video kaydını bul ve güncelle
     const lastRecording = appointment.videoRecordings[0];
     if (lastRecording) {
@@ -51,12 +67,28 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await prisma.appointment.update({
+        where: { id: validatedData.appointmentId },
+        data: {
+          status: "COMPLETED",
+          meetingEndedAt: new Date(),
+        },
+      });
+
       return NextResponse.json({
         success: true,
         duration,
         message: "Görüşme süresi kaydedildi",
       });
     }
+
+    await prisma.appointment.update({
+      where: { id: validatedData.appointmentId },
+      data: {
+        status: "COMPLETED",
+        meetingEndedAt: new Date(),
+      },
+    });
 
     return NextResponse.json({
       success: true,

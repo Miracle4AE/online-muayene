@@ -76,6 +76,14 @@ export const smsTemplates = {
     return `Sayın ${data.patientName}, yarın ${data.time}'de ${data.doctorName} ile randevunuz bulunmaktadır. Lütfen randevunuzu unutmayın.`;
   },
 
+  appointmentReminder15Min: (data: {
+    patientName: string;
+    doctorName: string;
+    time: string;
+  }) => {
+    return `Sayın ${data.patientName}, ${data.time} saatinde ${data.doctorName} ile randevunuz var. Görüşmeye 15 dakika kala hatırlatmadır.`;
+  },
+
   // Görüşme başlatıldı
   meetingStarted: (data: {
     patientName: string;

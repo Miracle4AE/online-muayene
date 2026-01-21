@@ -628,18 +628,10 @@ export default function PatientDashboard() {
         throw new Error("Rıza kaydedilemedi");
       }
 
-      // Görüntülü görüşme sayfasına yönlendir
-      if (selectedAppointmentForMeeting.meetingLink) {
-        // meetingLink'ten meeting ID'yi çıkar (https://meet.jit.si/appointment-xxx-yyy)
-        const meetingId = selectedAppointmentForMeeting.meetingLink.split("/").pop() || "";
-        if (meetingId) {
-          router.push(`/meeting/${meetingId}?appointmentId=${selectedAppointmentForMeeting.id}&patientId=${session?.user?.id}`);
-        } else {
-          throw new Error("Görüşme ID'si bulunamadı");
-        }
-      } else {
-        throw new Error("Görüşme linki bulunamadı");
-      }
+      // Görüntülü görüşmeyi yeni pencerede aç
+      const fallbackMeetingUrl = `/meeting/${selectedAppointmentForMeeting.id}?appointmentId=${selectedAppointmentForMeeting.id}&patientId=${session?.user?.id}`;
+      const meetingUrl = selectedAppointmentForMeeting.meetingLink || fallbackMeetingUrl;
+      window.open(meetingUrl, "_blank", "noopener,noreferrer,width=1280,height=800");
     } catch (error: any) {
       setError(error.message || "Rıza kaydedilirken bir hata oluştu");
     } finally {

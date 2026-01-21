@@ -165,6 +165,11 @@ model Appointment {
   status          String    @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
   notes           String?
   meetingLink     String? // Görüntülü görüşme linki
+  meetingStartedAt DateTime?
+  meetingEndsAt    DateTime?
+  meetingAutoEndDisabled Boolean @default(false)
+  meetingEndedAt   DateTime?
+  reminderSentAt   DateTime?
   // Ödeme bilgileri
   paymentAmount   Float? // Ödenen tutar (TL)
   paymentDate     DateTime? // Ödeme tarihi
@@ -191,6 +196,7 @@ model Prescription {
   patient          User        @relation("PatientPrescriptions", fields: [patientId], references: [id])
   hospitalId       String?
   hospital         Hospital?   @relation(fields: [hospitalId], references: [id])
+  prescriptionNumber String?
   medications      String // İlaç listesi (JSON veya string)
   diagnosis        String? // Tanı
   notes            String? // Notlar

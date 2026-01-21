@@ -31,6 +31,12 @@ export default function MeetingPage() {
   const [error, setError] = useState("");
   const [showSidePanel, setShowSidePanel] = useState(true);
   const [activePanel, setActivePanel] = useState<"chat" | "prescription" | "documents" | "notes">("chat");
+  const [meetingEndsAt, setMeetingEndsAt] = useState<Date | null>(null);
+  const [meetingAutoEndDisabled, setMeetingAutoEndDisabled] = useState(false);
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [timeLeftMinutes, setTimeLeftMinutes] = useState<number | null>(null);
+  const [minutesUntilStart, setMinutesUntilStart] = useState<number | null>(null);
+  const [connectionQuality, setConnectionQuality] = useState<"good" | "medium" | "poor" | "unknown">("unknown");
   
   // Chat
   const [chatMessages, setChatMessages] = useState<{sender: string; message: string; time: string}[]>([]);
@@ -40,6 +46,7 @@ export default function MeetingPage() {
   const [prescriptionDiagnosis, setPrescriptionDiagnosis] = useState("");
   const [prescriptionMedications, setPrescriptionMedications] = useState("");
   const [prescriptionNotes, setPrescriptionNotes] = useState("");
+  const [prescriptionNumber, setPrescriptionNumber] = useState("");
   
   // Documents
   const [documents, setDocuments] = useState<any[]>([]);
@@ -51,8 +58,12 @@ export default function MeetingPage() {
   // Participant info
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [doctorInfo, setDoctorInfo] = useState<any>(null);
+  const [appointmentDateTime, setAppointmentDateTime] = useState<Date | null>(null);
 
   const isDoctor = session?.user?.role === "DOCTOR";
+  const canJoinNow = !appointmentDateTime
+    ? true
+    : appointmentDateTime.getTime() - Date.now() <= 15 * 60 * 1000;
 
   // WebRTC configuration
   const iceServers = {
@@ -80,6 +91,9 @@ export default function MeetingPage() {
           const data = await response.json();
           setPatientInfo(data.patient);
           setDoctorInfo(data.doctor);
+          if (data.appointment?.appointmentDate) {
+            setAppointmentDateTime(new Date(data.appointment.appointmentDate));
+          }
         }
       } catch (err) {
         console.error("Error fetching participant info:", err);
@@ -90,6 +104,70 @@ export default function MeetingPage() {
       fetchParticipantInfo();
     }
   }, [appointmentId, session]);
+
+  const fetchMeetingStatus = useCallback(async () => {
+    if (!appointmentId) return;
+
+    try {
+      const response = await fetch(`/api/meetings/status?appointmentId=${appointmentId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (data.meetingEndedAt) {
+        router.push(isDoctor ? "/doctor/dashboard" : "/patient/dashboard");
+        return;
+      }
+
+      setMeetingAutoEndDisabled(!!data.meetingAutoEndDisabled);
+      setMeetingEndsAt(data.meetingEndsAt ? new Date(data.meetingEndsAt) : null);
+    } catch (err) {
+      console.error("Meeting status error:", err);
+    }
+  }, [appointmentId, isDoctor, router]);
+
+  useEffect(() => {
+    if (!appointmentId) return;
+    fetchMeetingStatus();
+    const interval = setInterval(fetchMeetingStatus, 10000);
+    return () => clearInterval(interval);
+  }, [appointmentId, fetchMeetingStatus]);
+
+  useEffect(() => {
+    if (!appointmentDateTime) return;
+    const interval = setInterval(() => {
+      const diffMs = appointmentDateTime.getTime() - Date.now();
+      const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+      setMinutesUntilStart(diffMinutes);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [appointmentDateTime]);
+
+  useEffect(() => {
+    const connection = (navigator as any).connection;
+    if (!connection) {
+      setConnectionQuality("unknown");
+      return;
+    }
+
+    const updateQuality = () => {
+      const effectiveType = connection.effectiveType;
+      const downlink = connection.downlink;
+      if (effectiveType === "4g" || downlink >= 5) {
+        setConnectionQuality("good");
+      } else if (effectiveType === "3g" || downlink >= 1.5) {
+        setConnectionQuality("medium");
+      } else {
+        setConnectionQuality("poor");
+      }
+    };
+
+    updateQuality();
+    connection.addEventListener("change", updateQuality);
+    return () => connection.removeEventListener("change", updateQuality);
+  }, []);
 
   // Upload recording to server
   const uploadRecording = useCallback(
@@ -149,18 +227,25 @@ export default function MeetingPage() {
 
   // Initialize local media
   useEffect(() => {
+    if (!canJoinNow) {
+      return;
+    }
+
     const initializeMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 },
             facingMode: "user",
           },
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
+            sampleRate: 48000,
+            channelCount: 1,
           },
         });
 
@@ -190,7 +275,7 @@ export default function MeetingPage() {
         peerConnection.close();
       }
     };
-  }, [startRecording]);
+  }, [startRecording, canJoinNow]);
 
   // Toggle mute
   const toggleMute = () => {
@@ -247,6 +332,7 @@ export default function MeetingPage() {
         body: JSON.stringify({
           appointmentId,
           patientId,
+          prescriptionNumber: prescriptionNumber || null,
           diagnosis: prescriptionDiagnosis,
           medications: prescriptionMedications,
           notes: prescriptionNotes,
@@ -258,6 +344,7 @@ export default function MeetingPage() {
         setPrescriptionDiagnosis("");
         setPrescriptionMedications("");
         setPrescriptionNotes("");
+        setPrescriptionNumber("");
       }
     } catch (err) {
       console.error("Prescription error:", err);
@@ -296,8 +383,28 @@ export default function MeetingPage() {
     }
   };
 
+  const handleExtendMeeting = async () => {
+    if (!appointmentId) return;
+    try {
+      const response = await fetch("/api/meetings/extend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ appointmentId }),
+      });
+      if (!response.ok) {
+        throw new Error("Görüşme uzatılamadı");
+      }
+      setMeetingAutoEndDisabled(true);
+      setShowExtendModal(false);
+      setTimeLeftMinutes(null);
+    } catch (err) {
+      console.error("Extend meeting error:", err);
+    }
+  };
+
   // End meeting
-  const endMeeting = async () => {
+  const endMeeting = useCallback(async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
     }
@@ -310,19 +417,50 @@ export default function MeetingPage() {
       peerConnectionRef.current.close();
     }
 
-    // Kaydet ve çık
-    try {
-      await fetch("/api/doctors/meetings/end", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appointmentId, meetingId }),
-      });
-    } catch (err) {
-      console.error("End meeting error:", err);
+    // Kaydet ve çık (doktor için)
+    if (isDoctor) {
+      try {
+        await fetch("/api/doctors/meetings/end", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId, meetingId }),
+        });
+      } catch (err) {
+        console.error("End meeting error:", err);
+      }
     }
 
     router.push(isDoctor ? "/doctor/dashboard" : "/patient/dashboard");
-  };
+  }, [appointmentId, meetingId, isDoctor, router]);
+
+  useEffect(() => {
+    if (!meetingEndsAt || meetingAutoEndDisabled) {
+      setTimeLeftMinutes(null);
+      setShowExtendModal(false);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const diffMs = meetingEndsAt.getTime() - now.getTime();
+      const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+      setTimeLeftMinutes(diffMinutes);
+
+      if (diffMs <= 60 * 1000 && diffMs > 0 && isDoctor) {
+        setShowExtendModal(true);
+      }
+
+      if (diffMs <= 0) {
+        if (isDoctor) {
+          endMeeting();
+        } else {
+          router.push("/patient/dashboard");
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [meetingEndsAt, meetingAutoEndDisabled, isDoctor, endMeeting, router]);
 
   return (
     <div className="h-screen w-screen bg-gray-900 flex flex-col overflow-hidden">
@@ -347,6 +485,26 @@ export default function MeetingPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              connectionQuality === "good"
+                ? "bg-green-100 text-green-800"
+                : connectionQuality === "medium"
+                ? "bg-yellow-100 text-yellow-800"
+                : connectionQuality === "poor"
+                ? "bg-red-100 text-red-800"
+                : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            Bağlantı:{" "}
+            {connectionQuality === "good"
+              ? "İyi"
+              : connectionQuality === "medium"
+              ? "Orta"
+              : connectionQuality === "poor"
+              ? "Zayıf"
+              : "Bilinmiyor"}
+          </div>
           {/* Mikrofon */}
           <button
             onClick={toggleMute}
@@ -401,6 +559,12 @@ export default function MeetingPage() {
         </div>
       </div>
 
+      {!meetingAutoEndDisabled && timeLeftMinutes !== null && (
+        <div className="bg-yellow-500 text-gray-900 px-6 py-2 text-sm font-medium text-center">
+          Görüşme süresi bitmek üzere. Kalan süre: {Math.max(timeLeftMinutes, 0)} dk
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Video Area */}
@@ -433,6 +597,22 @@ export default function MeetingPage() {
               <div className="text-center text-white">
                 <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-white mx-auto mb-4"></div>
                 <p className="text-lg font-medium">Bağlantı kuruluyor...</p>
+              </div>
+            </div>
+          )}
+
+          {!canJoinNow && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70">
+              <div className="text-center text-white px-6">
+                <p className="text-lg font-semibold mb-2">Randevu saatiniz henüz gelmedi</p>
+                <p className="text-sm">
+                  Görüşmeye 15 dakika kala katılabilirsiniz.
+                  {minutesUntilStart !== null && (
+                    <span className="block mt-2 font-medium">
+                      Kalan süre: {Math.max(minutesUntilStart, 0)} dakika
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
           )}
@@ -539,6 +719,16 @@ export default function MeetingPage() {
                 <div className="p-4 space-y-4">
                   <h3 className="text-lg font-bold text-gray-900">Reçete Yaz</h3>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reçete Numarası</label>
+                    <input
+                      type="text"
+                      value={prescriptionNumber}
+                      onChange={(e) => setPrescriptionNumber(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="Örn: RX-2025-0001"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Teşhis *</label>
                     <textarea
                       value={prescriptionDiagnosis}
@@ -630,6 +820,31 @@ export default function MeetingPage() {
           </div>
         )}
       </div>
+
+      {showExtendModal && isDoctor && !meetingAutoEndDisabled && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Görüşme süresi doldu</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Görüşmeye devam etmek ister misiniz? Devam ederseniz otomatik bitiş devre dışı kalır.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleExtendMeeting}
+                className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold"
+              >
+                Devam Et
+              </button>
+              <button
+                onClick={endMeeting}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
+              >
+                Görüşmeyi Bitir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .mirror {

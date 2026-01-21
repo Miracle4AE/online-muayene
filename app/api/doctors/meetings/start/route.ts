@@ -8,7 +8,6 @@ export const runtime = 'nodejs';
 
 const startMeetingSchema = z.object({
   appointmentId: z.string().min(1, "Randevu seçilmelidir"),
-  meetingLink: z.string().url("Geçerli bir görüşme linki giriniz"),
 });
 
 export async function POST(request: NextRequest) {
@@ -102,12 +101,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const now = new Date();
+    const meetingEndsAt = new Date(now.getTime() + 15 * 60 * 1000);
+    const meetingLink = `${request.nextUrl.origin}/meeting/${validatedData.appointmentId}?appointmentId=${validatedData.appointmentId}&doctorId=${doctorId}&patientId=${appointment.patientId}`;
+
     // Randevuya görüşme linkini ekle
     const updatedAppointment = await prisma.appointment.update({
       where: { id: validatedData.appointmentId },
       data: {
-        meetingLink: validatedData.meetingLink,
-        status: "COMPLETED", // Görüşme başladığında tamamlandı olarak işaretle
+        meetingLink,
+        meetingStartedAt: now,
+        meetingEndsAt,
+        meetingAutoEndDisabled: false,
+        meetingEndedAt: null,
       },
     });
 
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
       videoRecording = await prisma.videoRecording.update({
         where: { id: videoRecording.id },
         data: {
-          videoUrl: validatedData.meetingLink,
+          videoUrl: meetingLink,
           recordingDate: new Date(), // Görüşme başlangıç zamanı
         },
       });
@@ -138,7 +144,7 @@ export async function POST(request: NextRequest) {
           appointmentId: validatedData.appointmentId,
           doctorId: doctorId,
           patientId: appointment.patientId,
-          videoUrl: validatedData.meetingLink,
+          videoUrl: meetingLink,
           duration: null, // Görüşme bitince güncellenecek
           notes: null,
           consentGiven: false, // Hasta henüz rıza vermemiş olabilir
@@ -158,7 +164,7 @@ export async function POST(request: NextRequest) {
           patientPhone: appointment.patient.phone,
           patientName: appointment.patient.name,
           doctorName: appointment.doctor.name,
-          meetingLink: validatedData.meetingLink,
+          meetingLink,
           appointmentDate: appointment.appointmentDate,
         }),
       });
