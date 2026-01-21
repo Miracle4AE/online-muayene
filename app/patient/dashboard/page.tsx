@@ -180,6 +180,7 @@ export default function PatientDashboard() {
           "x-user-id": session?.user?.id || "",
           "x-user-role": session?.user?.role || "",
         },
+        cache: "no-store",
         credentials: "include",
       });
 
@@ -1130,6 +1131,11 @@ export default function PatientDashboard() {
               Yeni Randevu Al
             </Link>
           </div>
+          {error && (
+            <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3 mb-6">
             <div className="flex items-center gap-2">
