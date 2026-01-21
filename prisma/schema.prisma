@@ -207,6 +207,18 @@ model Prescription {
   @@map("prescriptions")
 }
 
+model MeetingSignal {
+  id            String   @id @default(cuid())
+  appointmentId String
+  senderId      String
+  type          String
+  payload       Json
+  createdAt     DateTime @default(now())
+
+  @@index([appointmentId, createdAt])
+  @@map("meeting_signals")
+}
+
 model MedicalReport {
   id                String    @id @default(cuid())
   appointmentId     String?

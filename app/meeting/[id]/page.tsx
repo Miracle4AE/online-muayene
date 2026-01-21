@@ -20,8 +20,12 @@ export default function MeetingPage() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const offerSentRef = useRef(false);
+  const signalCursorRef = useRef(0);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   
   // State
   const [isConnected, setIsConnected] = useState(false);
@@ -169,6 +173,7 @@ export default function MeetingPage() {
     return () => connection.removeEventListener("change", updateQuality);
   }, []);
 
+
   // Upload recording to server
   const uploadRecording = useCallback(
     async (blob: Blob) => {
@@ -195,6 +200,134 @@ export default function MeetingPage() {
     },
     [appointmentId, doctorId, patientId]
   );
+
+  const sendSignal = useCallback(
+    async (type: "offer" | "answer" | "ice", payload: any) => {
+      if (!appointmentId) return;
+      try {
+        await fetch("/api/meetings/signaling/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            appointmentId,
+            type,
+            payload,
+          }),
+        });
+      } catch (err) {
+        console.error("Signaling send error:", err);
+      }
+    },
+    [appointmentId]
+  );
+
+  const ensurePeerConnection = useCallback(() => {
+    if (peerConnectionRef.current) {
+      return peerConnectionRef.current;
+    }
+
+    const peerConnection = new RTCPeerConnection(iceServers);
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        sendSignal("ice", event.candidate);
+      }
+    };
+    peerConnection.ontrack = (event) => {
+      const [stream] = event.streams;
+      if (stream && remoteVideoRef.current) {
+        remoteStreamRef.current = stream;
+        remoteVideoRef.current.srcObject = stream;
+        setIsConnected(true);
+      }
+    };
+    peerConnection.onconnectionstatechange = () => {
+      const state = peerConnection.connectionState;
+      setIsConnected(state === "connected");
+    };
+
+    peerConnectionRef.current = peerConnection;
+    return peerConnection;
+  }, [sendSignal]);
+
+  const flushPendingCandidates = useCallback(async () => {
+    const peerConnection = peerConnectionRef.current;
+    if (!peerConnection || !peerConnection.remoteDescription) return;
+    const pending = pendingCandidatesRef.current;
+    pendingCandidatesRef.current = [];
+    for (const candidate of pending) {
+      try {
+        await peerConnection.addIceCandidate(candidate);
+      } catch (err) {
+        console.error("ICE candidate add error:", err);
+      }
+    }
+  }, []);
+
+  const handleSignal = useCallback(
+    async (signal: { type: string; payload: any }) => {
+      const peerConnection = ensurePeerConnection();
+      if (signal.type === "offer") {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(signal.payload)
+        );
+        await flushPendingCandidates();
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        await sendSignal("answer", answer);
+        return;
+      }
+      if (signal.type === "answer") {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(signal.payload)
+        );
+        await flushPendingCandidates();
+        return;
+      }
+      if (signal.type === "ice") {
+        if (peerConnection.remoteDescription) {
+          await peerConnection.addIceCandidate(signal.payload);
+        } else {
+          pendingCandidatesRef.current.push(signal.payload);
+        }
+      }
+    },
+    [ensurePeerConnection, flushPendingCandidates, sendSignal]
+  );
+
+  useEffect(() => {
+    if (!appointmentId || !session?.user?.id) return;
+
+    let active = true;
+    const pollSignals = async () => {
+      if (!active) return;
+      try {
+        const response = await fetch(
+          `/api/meetings/signaling/poll?appointmentId=${appointmentId}&after=${signalCursorRef.current}`,
+          { credentials: "include" }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const signals = data.signals || [];
+        for (const signal of signals) {
+          await handleSignal(signal);
+          const createdAt = new Date(signal.createdAt).getTime();
+          if (createdAt > signalCursorRef.current) {
+            signalCursorRef.current = createdAt;
+          }
+        }
+      } catch (err) {
+        console.error("Signaling poll error:", err);
+      }
+    };
+
+    pollSignals();
+    const interval = setInterval(pollSignals, 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [appointmentId, session, handleSignal]);
 
   // Start recording
   const startRecording = useCallback(
@@ -254,6 +387,16 @@ export default function MeetingPage() {
           localVideoRef.current.srcObject = stream;
         }
 
+        const peerConnection = ensurePeerConnection();
+        stream.getTracks().forEach((track) => peerConnection.addTrack(track, stream));
+
+        if (isDoctor && !offerSentRef.current) {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          await sendSignal("offer", offer);
+          offerSentRef.current = true;
+        }
+
         // Otomatik kayıt başlat
         startRecording(stream);
       } catch (err: any) {
@@ -275,7 +418,7 @@ export default function MeetingPage() {
         peerConnection.close();
       }
     };
-  }, [startRecording, canJoinNow]);
+  }, [startRecording, canJoinNow, ensurePeerConnection, isDoctor, sendSignal]);
 
   // Toggle mute
   const toggleMute = () => {

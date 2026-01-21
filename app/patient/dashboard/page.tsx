@@ -655,6 +655,9 @@ export default function PatientDashboard() {
       const fallbackMeetingUrl = `/meeting/${selectedAppointmentForMeeting.id}?appointmentId=${selectedAppointmentForMeeting.id}&patientId=${session?.user?.id}`;
       const meetingUrl = selectedAppointmentForMeeting.meetingLink || fallbackMeetingUrl;
       window.open(meetingUrl, "_blank", "noopener,noreferrer,width=1280,height=800");
+      setShowConsentModal(false);
+      setSelectedAppointmentForMeeting(null);
+      showToast("success", "Onam alındı, görüşme penceresi açıldı.");
     } catch (error: any) {
       setError(error.message || "Rıza kaydedilirken bir hata oluştu");
     } finally {
