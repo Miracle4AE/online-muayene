@@ -1263,21 +1263,8 @@ export default function PatientDashboard() {
                             {getStatusBadge(appointment.status)}
                             {appointment.meetingLink && (() => {
                               const canJoin = canJoinMeeting(appointment.appointmentDate);
-                              const appointmentTime = new Date(appointment.appointmentDate);
-                              const now = new Date();
-                              const isPast = appointmentTime < now;
 
-                              if (isPast) {
-                                return (
-                                  <button
-                                    disabled
-                                    className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
-                                    title="Bu randevu tarihi geçmiş"
-                                  >
-                                    Görüşmeye Katıl
-                                  </button>
-                                );
-                              } else if (canJoin) {
+                              if (canJoin) {
                                 return (
                                   <button
                                     onClick={() => handleJoinMeeting(appointment)}
@@ -1286,17 +1273,17 @@ export default function PatientDashboard() {
                                     Görüşmeye Katıl
                                   </button>
                                 );
-                              } else {
-                                return (
-                                  <button
-                                    disabled
-                                    className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
-                                    title="Randevu saatinden 15 dakika önce aktif olacak"
-                                  >
-                                    Görüşmeye Katıl
-                                  </button>
-                                );
                               }
+
+                              return (
+                                <button
+                                  disabled
+                                  className="px-4 py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed text-sm"
+                                  title="Randevu saatinden 15 dakika önce aktif olur, bitişten sonra 60 dakika içinde açıktır"
+                                >
+                                  Görüşmeye Katıl
+                                </button>
+                              );
                             })()}
                             <button
                               onClick={() => handleUploadReport(appointment)}
