@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -76,12 +76,15 @@ export default function MeetingPage() {
     : appointmentDateTime.getTime() - Date.now() <= 15 * 60 * 1000;
 
   // WebRTC configuration
-  const iceServers = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-    ],
-  };
+  const iceServers = useMemo(
+    () => ({
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ],
+    }),
+    []
+  );
 
   const fetchAppointmentDetails = useCallback(async () => {
     if (!appointmentId) return;
@@ -254,7 +257,7 @@ export default function MeetingPage() {
 
     peerConnectionRef.current = peerConnection;
     return peerConnection;
-  }, [sendSignal]);
+  }, [iceServers, sendSignal]);
 
   const flushPendingCandidates = useCallback(async () => {
     const peerConnection = peerConnectionRef.current;

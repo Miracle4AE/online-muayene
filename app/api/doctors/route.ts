@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     });
 
     let extraDoctors: typeof approvedDoctors = [];
-    let authResult: ReturnType<typeof getAuthUser> | null = null;
+    let authResult: Awaited<ReturnType<typeof getAuthUser>> | null = null;
     try {
       authResult = await getAuthUser(request);
     } catch {
