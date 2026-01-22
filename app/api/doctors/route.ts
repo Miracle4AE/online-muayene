@@ -71,12 +71,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const combinedDoctors = [
+    let combinedDoctors = [
       ...approvedDoctors,
       ...extraDoctors.filter(
         (doctor) => !approvedDoctors.some((item) => item.id === doctor.id)
       ),
     ];
+
+    if (combinedDoctors.length === 0 && search) {
+      const auth = await getAuthUser(request);
+      if (auth.ok && auth.role === "PATIENT") {
+        const fallbackWhere: any = {
+          role: "DOCTOR",
+          doctorProfile: {
+            isNot: null,
+            ...(specialization ? { specialization } : {}),
+            ...(city ? { city } : {}),
+            ...(hospital ? { hospital } : {}),
+          },
+        };
+        fallbackWhere.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
+          { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
+        ];
+
+        const fallbackDoctors = await prisma.user.findMany({
+          where: fallbackWhere,
+          include: { doctorProfile: true },
+        });
+
+        combinedDoctors = fallbackDoctors;
+      }
+    }
 
     // Reviews'ı toplu olarak çek
     const doctorProfileIds = combinedDoctors
