@@ -51,6 +51,12 @@ export default function MeetingPage() {
   const [prescriptionMedications, setPrescriptionMedications] = useState("");
   const [prescriptionNotes, setPrescriptionNotes] = useState("");
   const [prescriptionNumber, setPrescriptionNumber] = useState("");
+  const [sharedPrescription, setSharedPrescription] = useState<{
+    prescriptionNumber?: string | null;
+    diagnosis?: string | null;
+    medications?: string | null;
+    notes?: string | null;
+  } | null>(null);
   
   // Documents
   const [documents, setDocuments] = useState<any[]>([]);
@@ -77,37 +83,37 @@ export default function MeetingPage() {
     ],
   };
 
-  // Fetch participant info
-  useEffect(() => {
-    const fetchParticipantInfo = async () => {
-      if (!appointmentId) return;
-      
-      try {
-        const response = await fetch(`/api/appointments/${appointmentId}`, {
-          headers: {
-            "x-user-id": session?.user?.id || "",
-            "x-user-role": session?.user?.role || "",
-          },
-          credentials: "include",
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setPatientInfo(data.patient);
-          setDoctorInfo(data.doctor);
-          if (data.appointment?.appointmentDate) {
-            setAppointmentDateTime(new Date(data.appointment.appointmentDate));
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching participant info:", err);
-      }
-    };
+  const fetchAppointmentDetails = useCallback(async () => {
+    if (!appointmentId) return;
 
-    if (session?.user?.id) {
-      fetchParticipantInfo();
+    try {
+      const response = await fetch(`/api/appointments/${appointmentId}`, {
+        headers: {
+          "x-user-id": session?.user?.id || "",
+          "x-user-role": session?.user?.role || "",
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPatientInfo(data.patient);
+        setDoctorInfo(data.doctor);
+        if (data.appointment?.appointmentDate) {
+          setAppointmentDateTime(new Date(data.appointment.appointmentDate));
+        }
+        setDocuments(data.appointment?.patientDocuments || []);
+      }
+    } catch (err) {
+      console.error("Error fetching appointment details:", err);
     }
-  }, [appointmentId, session]);
+  }, [appointmentId, session?.user?.id, session?.user?.role]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchAppointmentDetails();
+    }
+  }, [fetchAppointmentDetails, session?.user?.id]);
 
   const fetchMeetingStatus = useCallback(async () => {
     if (!appointmentId) return;
@@ -202,7 +208,7 @@ export default function MeetingPage() {
   );
 
   const sendSignal = useCallback(
-    async (type: "offer" | "answer" | "ice", payload: any) => {
+    async (type: "offer" | "answer" | "ice" | "chat" | "prescription" | "document", payload: any) => {
       if (!appointmentId) return;
       try {
         await fetch("/api/meetings/signaling/send", {
@@ -266,6 +272,26 @@ export default function MeetingPage() {
 
   const handleSignal = useCallback(
     async (signal: { type: string; payload: any }) => {
+      if (signal.type === "chat") {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            sender: signal.payload?.sender || "Kullanıcı",
+            message: signal.payload?.message || "",
+            time: signal.payload?.time || new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+        return;
+      }
+      if (signal.type === "prescription") {
+        setSharedPrescription(signal.payload || null);
+        return;
+      }
+      if (signal.type === "document") {
+        fetchAppointmentDetails();
+        return;
+      }
+
       const peerConnection = ensurePeerConnection();
       if (signal.type === "offer") {
         await peerConnection.setRemoteDescription(
@@ -292,7 +318,7 @@ export default function MeetingPage() {
         }
       }
     },
-    [ensurePeerConnection, flushPendingCandidates, sendSignal]
+    [ensurePeerConnection, flushPendingCandidates, sendSignal, fetchAppointmentDetails]
   );
 
   useEffect(() => {
@@ -453,6 +479,7 @@ export default function MeetingPage() {
     };
     
     setChatMessages(prev => [...prev, newMessage]);
+    sendSignal("chat", newMessage);
     setChatInput("");
   };
 
@@ -484,6 +511,14 @@ export default function MeetingPage() {
 
       if (response.ok) {
         alert("Reçete başarıyla kaydedildi");
+        const shared = {
+          prescriptionNumber: prescriptionNumber || null,
+          diagnosis: prescriptionDiagnosis || null,
+          medications: prescriptionMedications || null,
+          notes: prescriptionNotes || null,
+        };
+        setSharedPrescription(shared);
+        sendSignal("prescription", shared);
         setPrescriptionDiagnosis("");
         setPrescriptionMedications("");
         setPrescriptionNotes("");
@@ -517,7 +552,8 @@ export default function MeetingPage() {
 
       if (response.ok) {
         alert("Belge başarıyla yüklendi");
-        // Reload documents
+        await fetchAppointmentDetails();
+        sendSignal("document", { appointmentId });
       }
     } catch (err) {
       console.error("Upload error:", err);
@@ -783,19 +819,17 @@ export default function MeetingPage() {
                   Sohbet
                 </div>
               </button>
-              {isDoctor && (
-                <button
-                  onClick={() => setActivePanel("prescription")}
-                  className={`flex-1 px-4 py-3 text-sm font-medium ${activePanel === "prescription" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-600"}`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Reçete
-                  </div>
-                </button>
-              )}
+              <button
+                onClick={() => setActivePanel("prescription")}
+                className={`flex-1 px-4 py-3 text-sm font-medium ${activePanel === "prescription" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-600"}`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Reçete
+                </div>
+              </button>
               <button
                 onClick={() => setActivePanel("documents")}
                 className={`flex-1 px-4 py-3 text-sm font-medium ${activePanel === "documents" ? "bg-white text-blue-600 border-b-2 border-blue-600" : "text-gray-600"}`}
@@ -844,7 +878,7 @@ export default function MeetingPage() {
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyPress={(e) => e.key === "Enter" && sendChatMessage()}
                         placeholder="Mesaj yazın..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         onClick={sendChatMessage}
@@ -858,16 +892,45 @@ export default function MeetingPage() {
               )}
 
               {/* Prescription Panel */}
-              {activePanel === "prescription" && isDoctor && (
+              {activePanel === "prescription" && (
                 <div className="p-4 space-y-4">
-                  <h3 className="text-lg font-bold text-gray-900">Reçete Yaz</h3>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {isDoctor ? "Reçete Yaz" : "Reçete Bilgileri"}
+                  </h3>
+                  {!isDoctor && !sharedPrescription && (
+                    <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      Henüz paylaşılmış bir reçete yok.
+                    </div>
+                  )}
+                  {!isDoctor && sharedPrescription && (
+                    <div className="space-y-3 text-sm text-gray-800">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="font-semibold text-gray-900">Reçete Numarası</p>
+                        <p>{sharedPrescription.prescriptionNumber || "-"}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="font-semibold text-gray-900">Teşhis</p>
+                        <p>{sharedPrescription.diagnosis || "-"}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="font-semibold text-gray-900">İlaçlar</p>
+                        <p className="whitespace-pre-wrap">{sharedPrescription.medications || "-"}</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p className="font-semibold text-gray-900">Notlar</p>
+                        <p className="whitespace-pre-wrap">{sharedPrescription.notes || "-"}</p>
+                      </div>
+                    </div>
+                  )}
+                  {isDoctor && (
+                    <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reçete Numarası</label>
                     <input
                       type="text"
                       value={prescriptionNumber}
                       onChange={(e) => setPrescriptionNumber(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                       placeholder="Örn: RX-2025-0001"
                     />
                   </div>
@@ -877,7 +940,7 @@ export default function MeetingPage() {
                       value={prescriptionDiagnosis}
                       onChange={(e) => setPrescriptionDiagnosis(e.target.value)}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                       placeholder="Teşhis..."
                     />
                   </div>
@@ -887,7 +950,7 @@ export default function MeetingPage() {
                       value={prescriptionMedications}
                       onChange={(e) => setPrescriptionMedications(e.target.value)}
                       rows={5}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                       placeholder="İlaç listesi..."
                     />
                   </div>
@@ -897,7 +960,7 @@ export default function MeetingPage() {
                       value={prescriptionNotes}
                       onChange={(e) => setPrescriptionNotes(e.target.value)}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                       placeholder="Ek notlar..."
                     />
                   </div>
@@ -907,6 +970,8 @@ export default function MeetingPage() {
                   >
                     Reçeteyi Kaydet
                   </button>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -935,6 +1000,31 @@ export default function MeetingPage() {
                     </label>
                   </div>
                   {uploadingDoc && <p className="text-sm text-blue-600">Yükleniyor...</p>}
+                  {documents.length > 0 && (
+                    <div className="space-y-2">
+                      {documents.map((doc: any) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <p className="font-semibold text-gray-900">{doc.title}</p>
+                            <p className="text-gray-600">{doc.documentType}</p>
+                          </div>
+                          {doc.fileUrl && (
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Görüntüle
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -945,7 +1035,7 @@ export default function MeetingPage() {
                   <textarea
                     value={meetingNotes}
                     onChange={(e) => setMeetingNotes(e.target.value)}
-                    className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 resize-none"
                     placeholder="Görüşme sırasında notlarınızı buraya yazın..."
                   />
                   <button

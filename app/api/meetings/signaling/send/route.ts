@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 const sendSchema = z.object({
   appointmentId: z.string().min(1, "Randevu ID gerekli"),
-  type: z.enum(["offer", "answer", "ice"]),
+  type: z.enum(["offer", "answer", "ice", "chat", "prescription", "document"]),
   payload: z.any(),
 });
 

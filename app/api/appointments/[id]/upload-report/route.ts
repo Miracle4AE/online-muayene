@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api-auth";
+import { getAuthUser } from "@/lib/api-auth";
 import { validateFormDataFile, ALLOWED_FILE_TYPES, MAX_FILE_SIZES } from "@/lib/file-validation";
 import { storeFile } from "@/lib/storage";
 import { rateLimit, RATE_LIMITS } from "@/middleware/rate-limit";
@@ -24,7 +24,7 @@ export async function POST(
     // Params'ı resolve et (Next.js 15+ için)
     const resolvedParams = await Promise.resolve(params);
     
-    const auth = await requireAuth(request, "PATIENT");
+    const auth = await getAuthUser(request);
     if (!auth.ok) {
       return NextResponse.json(
         { error: auth.error },
@@ -54,10 +54,23 @@ export async function POST(
       );
     }
 
-    // Randevunun bu hastaya ait olduğunu kontrol et
-    if (appointment.patientId !== auth.userId) {
+    if (auth.role === "PATIENT") {
+      if (appointment.patientId !== auth.userId) {
+        return NextResponse.json(
+          { error: "Bu randevu size ait değil" },
+          { status: 403 }
+        );
+      }
+    } else if (auth.role === "DOCTOR") {
+      if (appointment.doctorId !== auth.userId) {
+        return NextResponse.json(
+          { error: "Bu randevu size ait değil" },
+          { status: 403 }
+        );
+      }
+    } else {
       return NextResponse.json(
-        { error: "Bu randevu size ait değil" },
+        { error: "Yetkisiz erişim" },
         { status: 403 }
       );
     }
