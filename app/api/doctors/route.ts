@@ -13,24 +13,30 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get("city")?.trim() || "";
     const hospital = searchParams.get("hospital")?.trim() || "";
 
+    const baseProfileFilter: any = {
+      ...(specialization ? { specialization } : {}),
+      ...(city ? { city } : {}),
+      ...(hospital ? { hospital } : {}),
+    };
+
+    const searchOr = search
+      ? [
+          { name: { contains: search, mode: "insensitive" } },
+          { doctorProfile: { is: { specialization: { contains: search, mode: "insensitive" } } } },
+          { doctorProfile: { is: { hospital: { contains: search, mode: "insensitive" } } } },
+        ]
+      : undefined;
+
     const where: any = {
       role: "DOCTOR",
       doctorProfile: {
-        isNot: null,
-        verificationStatus: "APPROVED",
-        ...(specialization ? { specialization } : {}),
-        ...(city ? { city } : {}),
-        ...(hospital ? { hospital } : {}),
+        is: {
+          verificationStatus: "APPROVED",
+          ...baseProfileFilter,
+        },
       },
+      ...(searchOr ? { OR: searchOr } : {}),
     };
-
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
-        { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
-      ];
-    }
 
     const approvedDoctors = await prisma.user.findMany({
       where,
@@ -51,23 +57,17 @@ export async function GET(request: NextRequest) {
       const extraWhere: any = {
         role: "DOCTOR",
         doctorProfile: {
-          isNot: null,
-          ...(specialization ? { specialization } : {}),
-          ...(city ? { city } : {}),
-          ...(hospital ? { hospital } : {}),
+          is: {
+            ...baseProfileFilter,
+          },
         },
         doctorAppointments: {
           some: {
             patientId: authResult.userId,
           },
         },
+        ...(searchOr ? { OR: searchOr } : {}),
       };
-
-      extraWhere.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
-        { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
-      ];
 
       extraDoctors = await prisma.user.findMany({
         where: extraWhere,
@@ -89,17 +89,12 @@ export async function GET(request: NextRequest) {
         const fallbackWhere: any = {
           role: "DOCTOR",
           doctorProfile: {
-            isNot: null,
-            ...(specialization ? { specialization } : {}),
-            ...(city ? { city } : {}),
-            ...(hospital ? { hospital } : {}),
+            is: {
+              ...baseProfileFilter,
+            },
           },
+          ...(searchOr ? { OR: searchOr } : {}),
         };
-        fallbackWhere.OR = [
-          { name: { contains: search, mode: "insensitive" } },
-          { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
-          { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
-        ];
 
         const fallbackDoctors = await prisma.user.findMany({
           where: fallbackWhere,
