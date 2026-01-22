@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthUser } from "@/lib/api-auth";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -31,15 +32,54 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const filteredDoctors = await prisma.user.findMany({
+    const approvedDoctors = await prisma.user.findMany({
       where,
       include: {
         doctorProfile: true,
       },
     });
 
+    let extraDoctors: typeof approvedDoctors = [];
+    const auth = await getAuthUser(request);
+    if (auth.ok && auth.role === "PATIENT" && search) {
+      const extraWhere: any = {
+        role: "DOCTOR",
+        doctorProfile: {
+          isNot: null,
+          ...(specialization ? { specialization } : {}),
+          ...(city ? { city } : {}),
+          ...(hospital ? { hospital } : {}),
+        },
+        doctorAppointments: {
+          some: {
+            patientId: auth.userId,
+          },
+        },
+      };
+
+      extraWhere.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { doctorProfile: { specialization: { contains: search, mode: "insensitive" } } },
+        { doctorProfile: { hospital: { contains: search, mode: "insensitive" } } },
+      ];
+
+      extraDoctors = await prisma.user.findMany({
+        where: extraWhere,
+        include: {
+          doctorProfile: true,
+        },
+      });
+    }
+
+    const combinedDoctors = [
+      ...approvedDoctors,
+      ...extraDoctors.filter(
+        (doctor) => !approvedDoctors.some((item) => item.id === doctor.id)
+      ),
+    ];
+
     // Reviews'ı toplu olarak çek
-    const doctorProfileIds = filteredDoctors
+    const doctorProfileIds = combinedDoctors
       .map((d) => d.doctorProfile?.id)
       .filter((id): id is string => !!id);
 
@@ -65,7 +105,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Doktorları formatla
-    const doctorsWithRatings = filteredDoctors
+    const doctorsWithRatings = combinedDoctors
       .map((doctor) => {
         if (!doctor.doctorProfile) return null;
 
