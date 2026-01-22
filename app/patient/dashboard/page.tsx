@@ -393,7 +393,15 @@ export default function PatientDashboard() {
       }
       const data = await response.json();
       console.log("Doktorlar API'den geldi:", data);
-      setDoctors(data.doctors || []);
+      const mappedDoctors = (data.doctors || []).map((doctor: any) => ({
+        id: doctor.id,
+        name: doctor.name,
+        email: doctor.email,
+        photoUrl: doctor.profile?.photoUrl,
+        specialization: doctor.profile?.specialization,
+        hospital: doctor.profile?.hospital,
+      }));
+      setDoctors(mappedDoctors);
     } catch (err: any) {
       console.error("Doktorlar alınırken hata:", err);
       setDoctors([]);
