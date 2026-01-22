@@ -40,8 +40,14 @@ export async function GET(request: NextRequest) {
     });
 
     let extraDoctors: typeof approvedDoctors = [];
-    const auth = await getAuthUser(request);
-    if (auth.ok && auth.role === "PATIENT" && search) {
+    let authResult: ReturnType<typeof getAuthUser> | null = null;
+    try {
+      authResult = await getAuthUser(request);
+    } catch {
+      authResult = null;
+    }
+
+    if (authResult?.ok && authResult.role === "PATIENT" && search) {
       const extraWhere: any = {
         role: "DOCTOR",
         doctorProfile: {
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
         },
         doctorAppointments: {
           some: {
-            patientId: auth.userId,
+            patientId: authResult.userId,
           },
         },
       };
@@ -79,8 +85,7 @@ export async function GET(request: NextRequest) {
     ];
 
     if (combinedDoctors.length === 0 && search) {
-      const auth = await getAuthUser(request);
-      if (auth.ok && auth.role === "PATIENT") {
+      if (authResult?.ok && authResult.role === "PATIENT") {
         const fallbackWhere: any = {
           role: "DOCTOR",
           doctorProfile: {
