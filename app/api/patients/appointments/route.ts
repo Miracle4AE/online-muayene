@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
             notes: true,
             prescriptionDate: true,
             createdAt: true,
+            prescriptionNumber: true,
           },
           orderBy: {
             prescriptionDate: "desc",

@@ -3,7 +3,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 interface Appointment {
@@ -40,6 +40,7 @@ interface Appointment {
     notes?: string;
     prescriptionDate: string;
     createdAt: string;
+    prescriptionNumber?: string;
   }>;
   videoRecordings?: Array<{
     id: string;
@@ -65,6 +66,18 @@ interface Appointment {
     reportDate: string;
     createdAt: string;
   }>;
+}
+
+interface PrescriptionItem {
+  id: string;
+  medications: string;
+  diagnosis?: string;
+  notes?: string;
+  prescriptionDate: string;
+  createdAt: string;
+  prescriptionNumber?: string;
+  appointmentDate: string;
+  doctor: Appointment["doctor"];
 }
 
 export default function PatientDashboard() {
@@ -96,6 +109,7 @@ export default function PatientDashboard() {
   const [patientDocuments, setPatientDocuments] = useState<any[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [showReportsModal, setShowReportsModal] = useState(false);
+  const [showPrescriptionsModal, setShowPrescriptionsModal] = useState(false);
   const [favoriteDoctors, setFavoriteDoctors] = useState<any[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
@@ -506,6 +520,23 @@ export default function PatientDashboard() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
+
+  const allPrescriptions = useMemo<PrescriptionItem[]>(() => {
+    const flattened =
+      appointments.flatMap((apt) =>
+        (apt.prescriptions || []).map((prescription) => ({
+          ...prescription,
+          appointmentDate: apt.appointmentDate,
+          doctor: apt.doctor,
+        }))
+      ) || [];
+
+    return flattened.sort((a, b) => {
+      const aTime = new Date(a.prescriptionDate || a.createdAt).getTime();
+      const bTime = new Date(b.prescriptionDate || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+  }, [appointments]);
 
   const handleAISuggestion = async () => {
     if (!aiComplaint.trim() || aiComplaint.length < 10) {
@@ -2010,6 +2041,240 @@ export default function PatientDashboard() {
             </div>
           )}
         </div>
+
+        {/* Reçetelerim */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-primary-900">Reçetelerim</h2>
+            {allPrescriptions.length > 3 && (
+              <button
+                onClick={() => setShowPrescriptionsModal(true)}
+                className="text-sm font-semibold text-primary-600 hover:text-primary-700"
+              >
+                Daha fazla gör
+              </button>
+            )}
+          </div>
+
+          {allPrescriptions.length === 0 ? (
+            <div className="text-center py-12">
+              <svg className="w-16 h-16 text-primary-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-primary-600 mb-4">Henüz reçete bulunmuyor</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {allPrescriptions.slice(0, 3).map((prescription) => (
+                <div
+                  key={prescription.id}
+                  className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            <h4 className="font-semibold text-primary-900 text-lg">Reçete</h4>
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                              {new Date(prescription.prescriptionDate).toLocaleDateString("tr-TR", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })}
+                            </span>
+                            {prescription.prescriptionNumber && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                No: {prescription.prescriptionNumber}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span className="text-sm text-primary-700 font-medium">
+                              {prescription.doctor?.name}
+                            </span>
+                            {prescription.doctor?.specialization && (
+                              <>
+                                <span className="text-primary-400">•</span>
+                                <span className="text-sm text-primary-600">
+                                  {prescription.doctor.specialization}
+                                </span>
+                              </>
+                            )}
+                            {prescription.doctor?.hospital && (
+                              <>
+                                <span className="text-primary-400">•</span>
+                                <span className="text-sm text-primary-600">
+                                  {prescription.doctor.hospital}
+                                </span>
+                              </>
+                            )}
+                          </div>
+
+                          {prescription.diagnosis && (
+                            <p className="text-sm text-primary-700 mb-2">
+                              <span className="font-semibold text-primary-800">Tanı:</span>{" "}
+                              {prescription.diagnosis}
+                            </p>
+                          )}
+
+                          <p className="text-sm text-primary-700 whitespace-pre-wrap">
+                            <span className="font-semibold text-primary-800">İlaçlar:</span>{" "}
+                            {prescription.medications}
+                          </p>
+
+                          {prescription.notes && (
+                            <p className="text-sm text-primary-700 mt-2">
+                              <span className="font-semibold text-primary-800">Not:</span>{" "}
+                              {prescription.notes}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-4 text-xs text-primary-500 mt-3">
+                            <span>
+                              Randevu: {new Date(prescription.appointmentDate).toLocaleDateString("tr-TR", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Reçeteler Modal */}
+        {showPrescriptionsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6 p-6 border-b border-primary-200">
+                <h3 className="text-2xl font-bold text-primary-900">Reçetelerim</h3>
+                <button
+                  onClick={() => setShowPrescriptionsModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6">
+                {allPrescriptions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg className="w-16 h-16 text-primary-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p className="text-primary-600">Henüz reçete bulunmuyor</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {allPrescriptions.map((prescription) => (
+                      <div
+                        key={prescription.id}
+                        className="border border-primary-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                              <h4 className="font-semibold text-primary-900 text-lg">Reçete</h4>
+                              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                {new Date(prescription.prescriptionDate).toLocaleDateString("tr-TR", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })}
+                              </span>
+                              {prescription.prescriptionNumber && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                  No: {prescription.prescriptionNumber}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 mb-2">
+                              <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span className="text-sm text-primary-700 font-medium">
+                                {prescription.doctor?.name}
+                              </span>
+                              {prescription.doctor?.specialization && (
+                                <>
+                                  <span className="text-primary-400">•</span>
+                                  <span className="text-sm text-primary-600">
+                                    {prescription.doctor.specialization}
+                                  </span>
+                                </>
+                              )}
+                              {prescription.doctor?.hospital && (
+                                <>
+                                  <span className="text-primary-400">•</span>
+                                  <span className="text-sm text-primary-600">
+                                    {prescription.doctor.hospital}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+
+                            {prescription.diagnosis && (
+                              <p className="text-sm text-primary-700 mb-2">
+                                <span className="font-semibold text-primary-800">Tanı:</span>{" "}
+                                {prescription.diagnosis}
+                              </p>
+                            )}
+
+                            <p className="text-sm text-primary-700 whitespace-pre-wrap">
+                              <span className="font-semibold text-primary-800">İlaçlar:</span>{" "}
+                              {prescription.medications}
+                            </p>
+
+                            {prescription.notes && (
+                              <p className="text-sm text-primary-700 mt-2">
+                                <span className="font-semibold text-primary-800">Not:</span>{" "}
+                                {prescription.notes}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-4 text-xs text-primary-500 mt-3">
+                              <span>
+                                Randevu: {new Date(prescription.appointmentDate).toLocaleDateString("tr-TR", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Geçmiş Randevular Modal */}
         {showPastAppointmentsModal && (
