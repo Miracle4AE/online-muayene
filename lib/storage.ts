@@ -17,15 +17,25 @@ function createFileName(originalName: string, prefix: string) {
   return `${prefix}-${timestamp}-${random}-${safeName}`;
 }
 
+function getBlobToken() {
+  return process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN;
+}
+
 export async function storeFile(file: File, folder: string, prefix: string): Promise<StoredFile> {
   const fileName = createFileName(file.name, prefix);
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  const blobToken = getBlobToken();
+  if (blobToken) {
     const blob = await put(`${folder}/${fileName}`, file, {
       access: "public",
       addRandomSuffix: false,
+      token: blobToken,
     });
     return { url: blob.url, fileName, provider: "blob" };
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error("Dosya yükleme için Vercel Blob anahtarı gerekli. Lütfen BLOB_READ_WRITE_TOKEN ayarlayın.");
   }
 
   const uploadDir = join(process.cwd(), "public", folder);
@@ -49,12 +59,18 @@ export async function storeBuffer(
   const safeName = sanitizeFileName(fileName);
   const finalName = safeName || `file-${Date.now()}`;
 
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  const blobToken = getBlobToken();
+  if (blobToken) {
     const blob = await put(`${folder}/${finalName}`, buffer, {
       access: "public",
       addRandomSuffix: false,
+      token: blobToken,
     });
     return { url: blob.url, fileName: finalName, provider: "blob" };
+  }
+
+  if (process.env.VERCEL) {
+    throw new Error("Dosya yükleme için Vercel Blob anahtarı gerekli. Lütfen BLOB_READ_WRITE_TOKEN ayarlayın.");
   }
 
   const uploadDir = join(process.cwd(), "public", folder);
