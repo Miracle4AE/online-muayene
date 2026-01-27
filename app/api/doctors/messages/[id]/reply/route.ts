@@ -56,29 +56,21 @@ export async function POST(
       );
     }
 
-    // Yanıtı kaydet (mesajın reply alanına ekle veya yeni bir model oluştur)
-    // Şimdilik mesajın message alanına yanıtı ekleyelim (basit çözüm)
-    // Daha iyi çözüm: MessageReply modeli oluşturmak
-    const updatedMessage = await prisma.doctorMessage.update({
-      where: { id: messageId },
+    const reply = await prisma.messageReply.create({
       data: {
-        message: `${message.message}\n\n--- DOKTOR YANITI ---\n${validatedData.reply}`,
-        updatedAt: new Date(),
+        messageId: messageId,
+        senderId: doctorId,
+        senderRole: "DOCTOR",
+        messageText: validatedData.reply,
       },
       include: {
-        patient: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        attachments: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: updatedMessage,
+      reply,
       info: "Yanıtınız hasta ile paylaşıldı",
     });
   } catch (error: any) {
