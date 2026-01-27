@@ -105,6 +105,9 @@ export default function DoctorDashboardPage() {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"overview" | "search" | "appointments" | "details" | "messages" | "followed">("overview");
   const [messages, setMessages] = useState<any[]>([]);
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [replyFiles, setReplyFiles] = useState<Record<string, File[]>>({});
+  const [sendingReplyId, setSendingReplyId] = useState<string | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [showTodayAppointments, setShowTodayAppointments] = useState(false);
@@ -531,6 +534,55 @@ export default function DoctorDashboardPage() {
       showError(err.message || "Bir hata oluştu");
     } finally {
       setProcessingMessage(null);
+    }
+  };
+
+  const handleReplyTextChange = (messageId: string, value: string) => {
+    setReplyTexts((prev) => ({ ...prev, [messageId]: value }));
+  };
+
+  const handleReplyFilesChange = (messageId: string, files: File[]) => {
+    setReplyFiles((prev) => ({ ...prev, [messageId]: files }));
+  };
+
+  const handleSendReply = async (messageId: string) => {
+    const replyText = replyTexts[messageId]?.trim() || "";
+    if (!replyText) {
+      showError("Lütfen mesajınızı yazın");
+      return;
+    }
+
+    try {
+      setSendingReplyId(messageId);
+      const formData = new FormData();
+      formData.append("message", replyText);
+      (replyFiles[messageId] || []).forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const response = await fetch(`/api/messages/${messageId}/reply`, {
+        method: "POST",
+        headers: {
+          "x-user-id": session?.user?.id || "",
+          "x-user-role": session?.user?.role || "",
+        },
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Mesaj gönderilemedi");
+      }
+
+      showSuccess("Mesaj gönderildi");
+      setReplyTexts((prev) => ({ ...prev, [messageId]: "" }));
+      setReplyFiles((prev) => ({ ...prev, [messageId]: [] }));
+      await fetchMessages();
+    } catch (err: any) {
+      showError(err.message || "Mesaj gönderilirken bir hata oluştu");
+    } finally {
+      setSendingReplyId(null);
     }
   };
 
@@ -2766,6 +2818,104 @@ export default function DoctorDashboardPage() {
                                     </svg>
                                   </a>
                                 ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {message.replies && message.replies.length > 0 && (
+                            <div className="mt-4 space-y-3">
+                              {message.replies.map((reply: any) => (
+                                <div
+                                  key={reply.id}
+                                  className={`rounded-lg p-4 border ${
+                                    reply.senderRole === "DOCTOR"
+                                      ? "bg-blue-50 border-blue-200"
+                                      : "bg-green-50 border-green-200"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-semibold text-gray-700">
+                                      {reply.senderRole === "DOCTOR" ? "Sizin Yanıtınız" : "Hasta Yanıtı"}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(reply.createdAt).toLocaleString("tr-TR")}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-800 whitespace-pre-wrap">{reply.messageText}</p>
+                                  {reply.attachments && reply.attachments.length > 0 && (
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      {reply.attachments.map((attachment: any) => (
+                                        <a
+                                          key={attachment.id}
+                                          href={attachment.fileUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-all"
+                                        >
+                                          <div className="w-10 h-10 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                            {attachment.fileType?.startsWith("image/") ? (
+                                              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                              </svg>
+                                            ) : attachment.fileType === "application/pdf" ? (
+                                              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                              </svg>
+                                            ) : (
+                                              <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{attachment.fileName}</p>
+                                          </div>
+                                          <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {message.status === "ACTIVE" && (
+                            <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-2">Yeni Mesaj</p>
+                              <textarea
+                                value={replyTexts[message.id] || ""}
+                                onChange={(e) => handleReplyTextChange(message.id, e.target.value)}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                                placeholder="Hastaya mesaj yazın..."
+                              />
+                              <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                  <label className="px-3 py-2 border border-gray-300 rounded-lg text-sm cursor-pointer hover:bg-gray-50">
+                                    Dosya Ekle
+                                    <input
+                                      type="file"
+                                      multiple
+                                      className="hidden"
+                                      onChange={(e) => handleReplyFilesChange(message.id, Array.from(e.target.files || []))}
+                                    />
+                                  </label>
+                                  {replyFiles[message.id]?.length ? (
+                                    <span className="text-xs text-gray-500">
+                                      {replyFiles[message.id].length} dosya seçildi
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <button
+                                  onClick={() => handleSendReply(message.id)}
+                                  disabled={sendingReplyId === message.id}
+                                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                >
+                                  {sendingReplyId === message.id ? "Gönderiliyor..." : "Gönder"}
+                                </button>
                               </div>
                             </div>
                           )}

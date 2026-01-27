@@ -376,8 +376,37 @@ model DoctorMessage {
 
   // Mesaj ekleri
   attachments MessageAttachment[]
+  replies     MessageReply[]
 
   @@map("doctor_messages")
+}
+
+model MessageReply {
+  id         String        @id @default(cuid())
+  messageId  String
+  message    DoctorMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderRole String // DOCTOR veya PATIENT
+  messageText String
+  createdAt  DateTime      @default(now())
+
+  attachments MessageReplyAttachment[]
+
+  @@index([messageId, createdAt])
+  @@map("message_replies")
+}
+
+model MessageReplyAttachment {
+  id        String       @id @default(cuid())
+  replyId   String
+  reply     MessageReply @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  fileName  String
+  fileUrl   String
+  fileSize  Int?
+  fileType  String?
+  uploadedAt DateTime    @default(now())
+
+  @@map("message_reply_attachments")
 }
 
 model MessageAttachment {

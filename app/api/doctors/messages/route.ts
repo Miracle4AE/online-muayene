@@ -38,6 +38,14 @@ export async function GET(request: NextRequest) {
           },
         },
         attachments: true,
+        replies: {
+          include: {
+            attachments: true,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

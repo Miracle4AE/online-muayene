@@ -28,6 +28,14 @@ export async function GET(request: NextRequest) {
             uploadedAt: "desc",
           },
         },
+        replies: {
+          include: {
+            attachments: true,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -114,6 +122,32 @@ export async function GET(request: NextRequest) {
           attachments = [];
         }
 
+        let replies: any[] = [];
+        try {
+          if (msg.replies && Array.isArray(msg.replies)) {
+            replies = msg.replies.map((reply: any) => ({
+              id: String(reply.id),
+              senderId: String(reply.senderId),
+              senderRole: String(reply.senderRole),
+              messageText: String(reply.messageText || ""),
+              createdAt: reply.createdAt ? reply.createdAt.toISOString() : new Date().toISOString(),
+              attachments: Array.isArray(reply.attachments)
+                ? reply.attachments.map((att: any) => ({
+                    id: String(att.id),
+                    fileName: String(att.fileName || ""),
+                    fileUrl: String(att.fileUrl || ""),
+                    fileSize: att.fileSize || null,
+                    fileType: att.fileType || null,
+                    uploadedAt: att.uploadedAt ? att.uploadedAt.toISOString() : new Date().toISOString(),
+                  }))
+                : [],
+            }));
+          }
+        } catch (replyError) {
+          console.error("Error processing replies:", replyError);
+          replies = [];
+        }
+
         return {
           id: String(msg.id),
           patientId: String(msg.patientId),
@@ -127,6 +161,7 @@ export async function GET(request: NextRequest) {
           blockedAt: msg.blockedAt ? msg.blockedAt.toISOString() : null,
           doctor: doctor,
           attachments: attachments,
+          replies: replies,
         };
       });
 
