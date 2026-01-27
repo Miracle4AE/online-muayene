@@ -108,6 +108,10 @@ export default function DoctorDashboardPage() {
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [replyFiles, setReplyFiles] = useState<Record<string, File[]>>({});
   const [sendingReplyId, setSendingReplyId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "close" | "block";
+    messageId: string;
+  } | null>(null);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [showTodayAppointments, setShowTodayAppointments] = useState(false);
@@ -587,9 +591,6 @@ export default function DoctorDashboardPage() {
   };
 
   const handleCloseConversation = async (messageId: string) => {
-    if (!confirm("Görüşmeyi kapatmak istediğinize emin misiniz? Hasta artık size yazamayacak.")) {
-      return;
-    }
 
     try {
       if (!session?.user?.id) return;
@@ -619,9 +620,6 @@ export default function DoctorDashboardPage() {
   };
 
   const handleBlockPatient = async (messageId: string) => {
-    if (!confirm("Bu hastayı engellemek istediğinize emin misiniz? Hasta artık size mesaj gönderemeyecek.")) {
-      return;
-    }
 
     try {
       if (!session?.user?.id) return;
@@ -2993,7 +2991,7 @@ export default function DoctorDashboardPage() {
                         )}
                         {message.status === "ACTIVE" && (
                           <button
-                            onClick={() => handleCloseConversation(message.id)}
+                            onClick={() => setConfirmAction({ type: "close", messageId: message.id })}
                             disabled={processingMessage === message.id}
                             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                           >
@@ -3017,7 +3015,7 @@ export default function DoctorDashboardPage() {
                         )}
                         {(message.status === "PENDING" || message.status === "ACTIVE") && (
                           <button
-                            onClick={() => handleBlockPatient(message.id)}
+                            onClick={() => setConfirmAction({ type: "block", messageId: message.id })}
                             disabled={processingMessage === message.id}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                           >
@@ -3044,6 +3042,75 @@ export default function DoctorDashboardPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {confirmAction && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    confirmAction.type === "block" ? "bg-red-100" : "bg-gray-100"
+                  }`}
+                >
+                  <svg
+                    className={`w-5 h-5 ${
+                      confirmAction.type === "block" ? "text-red-600" : "text-gray-600"
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 100-12 6 6 0 000 12z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {confirmAction.type === "block"
+                      ? "Hastayı Engelle"
+                      : "Görüşmeyi Bitir"}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {confirmAction.type === "block"
+                      ? "Bu hasta artık size mesaj gönderemeyecek."
+                      : "Görüşme kapatılacak, hasta artık size yazamayacak."}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  onClick={async () => {
+                    const target = confirmAction;
+                    setConfirmAction(null);
+                    if (!target) return;
+                    if (target.type === "block") {
+                      await handleBlockPatient(target.messageId);
+                    } else {
+                      await handleCloseConversation(target.messageId);
+                    }
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white ${
+                    confirmAction.type === "block"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-gray-700 hover:bg-gray-800"
+                  }`}
+                >
+                  Onayla
+                </button>
+              </div>
             </div>
           </div>
         )}
