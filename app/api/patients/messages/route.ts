@@ -159,6 +159,7 @@ export async function GET(request: NextRequest) {
           startedAt: msg.startedAt ? msg.startedAt.toISOString() : null,
           closedAt: msg.closedAt ? msg.closedAt.toISOString() : null,
           blockedAt: msg.blockedAt ? msg.blockedAt.toISOString() : null,
+          patientLastReadAt: msg.patientLastReadAt ? msg.patientLastReadAt.toISOString() : null,
           doctor: doctor,
           attachments: attachments,
           replies: replies,

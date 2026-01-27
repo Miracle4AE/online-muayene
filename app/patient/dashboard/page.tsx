@@ -157,6 +157,34 @@ export default function PatientDashboard() {
   }, [showFavoritesModal, session]);
 
   useEffect(() => {
+    if (!showMessagesModal || patientMessages.length === 0) return;
+    const markRead = async () => {
+      try {
+        const messageIds = patientMessages.map((msg: any) => msg.id).filter(Boolean);
+        if (messageIds.length === 0) return;
+        await fetch("/api/patients/messages/mark-read", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": session?.user?.id || "",
+            "x-user-role": session?.user?.role || "",
+          },
+          credentials: "include",
+          body: JSON.stringify({ messageIds }),
+        });
+        const nowIso = new Date().toISOString();
+        setPatientMessages((prev) =>
+          prev.map((msg: any) => ({ ...msg, patientLastReadAt: nowIso }))
+        );
+        setUnreadCount(0);
+      } catch (err) {
+        console.error("Mark read error:", err);
+      }
+    };
+    markRead();
+  }, [showMessagesModal, patientMessages.length, session?.user?.id, session?.user?.role]);
+
+  useEffect(() => {
     if (session && session.user?.id) {
       fetchPatientMessages();
     }
@@ -639,11 +667,17 @@ export default function PatientDashboard() {
       setPatientMessages(data.messages || []);
       
       // Okunmamış mesaj sayısını hesapla (ACTIVE durumunda ve doktor yanıt vermişse)
-      const unread = (data.messages || []).filter((msg: any) => {
-        if (msg.status !== "ACTIVE") return false;
+      const unread = (data.messages || []).reduce((count: number, msg: any) => {
+        if (msg.status !== "ACTIVE") return count;
+        const lastReadAt = msg.patientLastReadAt ? new Date(msg.patientLastReadAt) : null;
         const replies = msg.replies || [];
-        return replies.some((reply: any) => reply.senderRole === "DOCTOR");
-      }).length;
+        const unreadReplies = replies.filter((reply: any) => {
+          if (reply.senderRole !== "DOCTOR") return false;
+          const replyTime = new Date(reply.createdAt);
+          return !lastReadAt || replyTime > lastReadAt;
+        });
+        return count + unreadReplies.length;
+      }, 0);
       setUnreadCount(unread);
     } catch (err: any) {
       console.error("Mesajlar alınırken hata:", err);

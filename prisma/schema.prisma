@@ -373,6 +373,8 @@ model DoctorMessage {
   startedAt DateTime? // Doktor görüşmeyi başlattığında
   closedAt  DateTime? // Doktor görüşmeyi bitirdiğinde
   blockedAt DateTime? // Doktor engellediğinde
+  patientLastReadAt DateTime?
+  doctorLastReadAt  DateTime?
 
   // Mesaj ekleri
   attachments MessageAttachment[]
