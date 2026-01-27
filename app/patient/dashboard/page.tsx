@@ -196,12 +196,24 @@ export default function PatientDashboard() {
     if (!session || !session.user?.id) return;
 
     const interval = setInterval(() => {
-      fetchPatientMessages();
+      fetchPatientMessages({ silent: true });
     }, 30000); // 30 saniye
 
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  useEffect(() => {
+    if (!showMessagesModal || !session?.user?.id) return;
+    fetchPatientMessages();
+
+    const interval = setInterval(() => {
+      fetchPatientMessages({ silent: true });
+    }, 5000); // mesaj ekranında daha sık güncelle
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMessagesModal, session?.user?.id]);
 
   const fetchAppointments = async () => {
     try {
@@ -646,11 +658,13 @@ export default function PatientDashboard() {
     }
   };
 
-  const fetchPatientMessages = async () => {
+  const fetchPatientMessages = async (options?: { silent?: boolean }) => {
     try {
       if (!session?.user?.id) return;
-
-      setLoadingMessages(true);
+      const silent = options?.silent;
+      if (!silent) {
+        setLoadingMessages(true);
+      }
       const response = await fetch("/api/patients/messages", {
         headers: {
           "x-user-id": session.user.id,
@@ -682,7 +696,9 @@ export default function PatientDashboard() {
     } catch (err: any) {
       console.error("Mesajlar alınırken hata:", err);
     } finally {
-      setLoadingMessages(false);
+      if (!options?.silent) {
+        setLoadingMessages(false);
+      }
     }
   };
 

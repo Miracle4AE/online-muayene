@@ -206,6 +206,18 @@ export default function DoctorDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, status, router]);
 
+  useEffect(() => {
+    if (activeTab !== "messages" || !session?.user?.id) return;
+    fetchMessages();
+
+    const interval = setInterval(() => {
+      fetchMessages({ silent: true });
+    }, 5000);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, session?.user?.id]);
+
   const fetchVerificationStatus = async () => {
     try {
       if (!session?.user?.id) return;
@@ -487,11 +499,13 @@ export default function DoctorDashboardPage() {
     }
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (options?: { silent?: boolean }) => {
     try {
       if (!session?.user?.id) return;
-
-      setLoadingMessages(true);
+      const silent = options?.silent;
+      if (!silent) {
+        setLoadingMessages(true);
+      }
       const response = await fetch("/api/doctors/messages", {
         headers: {
           "x-user-id": session.user.id,
@@ -509,7 +523,9 @@ export default function DoctorDashboardPage() {
     } catch (err: any) {
       setError(err.message || "Mesajlar alınırken bir hata oluştu");
     } finally {
-      setLoadingMessages(false);
+      if (!options?.silent) {
+        setLoadingMessages(false);
+      }
     }
   };
 
@@ -2712,7 +2728,7 @@ export default function DoctorDashboardPage() {
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Hasta Mesajları</h2>
                 <button
-                  onClick={fetchMessages}
+                  onClick={() => fetchMessages()}
                   disabled={loadingMessages}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
